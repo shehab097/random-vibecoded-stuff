@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Directory File Explorer</title>
+    <title>Repository Explorer & Live Preview</title>
     
     <style>
         :root {
@@ -17,6 +17,11 @@
             --meta: #888888;
             --accent: #ff6b6b;
             --badge-bg: #222;
+            --active-bg: #262626;
+        }
+
+        * {
+            box-sizing: border-box;
         }
 
         body {
@@ -24,30 +29,38 @@
             background-color: var(--bg);
             color: var(--text);
             margin: 0;
-            padding: 2rem 1rem;
+            padding: 1rem;
+            height: 100vh;
+            overflow: hidden;
             line-height: 1.5;
-            font-size: 14px;
+            font-size: 13px;
         }
 
         .app-container {
-            max-width: 850px;
+            display: flex;
+            flex-direction: column;
+            height: calc(100vh - 2rem);
+            max-width: 1400px;
             margin: 0 auto;
         }
 
         header {
-            margin-bottom: 1.5rem;
-            padding-bottom: 1rem;
+            margin-bottom: 0.75rem;
+            padding-bottom: 0.75rem;
             border-bottom: 1px dashed var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
 
         h1 {
-            font-size: 1.2rem;
-            margin: 0 0 0.5rem 0;
+            font-size: 1.1rem;
+            margin: 0 0 0.25rem 0;
             font-weight: bold;
         }
 
         .subtitle {
-            font-size: 0.85rem;
+            font-size: 0.8rem;
             color: var(--meta);
             display: flex;
             align-items: center;
@@ -65,10 +78,113 @@
             font-size: 0.75rem;
         }
 
+        .workspace {
+            display: flex;
+            flex: 1;
+            gap: 1rem;
+            overflow: hidden;
+        }
+
+        .sidebar {
+            width: 420px;
+            min-width: 320px;
+            overflow-y: auto;
+            border-right: 1px dashed var(--border);
+            padding-right: 0.75rem;
+        }
+
+        .preview-pane {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: var(--hover);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            overflow: hidden;
+        }
+
+        .preview-header {
+            padding: 0.6rem 1rem;
+            background: var(--bg);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .preview-title-info {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+        }
+
+        .preview-filename {
+            font-weight: bold;
+            color: var(--link);
+        }
+
+        .preview-filesize {
+            font-size: 0.75rem;
+            color: var(--meta);
+        }
+
+        .external-btn {
+            background: var(--badge-bg);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 0.3rem 0.6rem;
+            border-radius: 4px;
+            cursor: pointer;
+            text-decoration: none;
+            font-family: inherit;
+            font-size: 0.75rem;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            transition: background 0.2s, border-color 0.2s;
+            white-space: nowrap;
+        }
+
+        .external-btn:hover {
+            background: var(--active-bg);
+            border-color: var(--link);
+            color: var(--link);
+        }
+
+        .preview-content {
+            flex: 1;
+            background: #1e1e1e;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .preview-iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            background: #ffffff;
+        }
+
+        .preview-placeholder {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: var(--meta);
+            text-align: center;
+            padding: 2rem;
+            gap: 0.5rem;
+        }
+
         .node {
-            margin-left: 1.25rem;
+            margin-left: 1rem;
             border-left: 1px dotted var(--border);
-            padding-left: 0.5rem;
+            padding-left: 0.4rem;
         }
 
         .node.root {
@@ -79,7 +195,7 @@
 
         .folder-header {
             cursor: pointer;
-            padding: 0.35rem 0.5rem;
+            padding: 0.3rem 0.4rem;
             display: flex;
             align-items: center;
             border-radius: 4px;
@@ -94,7 +210,7 @@
         .folder-icon {
             font-weight: bold;
             color: var(--folder);
-            margin-right: 0.5rem;
+            margin-right: 0.4rem;
             width: 1.2rem;
         }
 
@@ -104,8 +220,8 @@
 
         .folder-children {
             display: none;
-            padding-top: 0.25rem;
-            padding-bottom: 0.25rem;
+            padding-top: 0.15rem;
+            padding-bottom: 0.15rem;
         }
 
         .folder-children.open {
@@ -116,19 +232,26 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 0.35rem 0.5rem;
+            padding: 0.3rem 0.4rem;
             border-radius: 4px;
+            cursor: pointer;
             transition: background 0.2s;
+            position: relative;
         }
 
         .file-item:hover {
             background: var(--hover);
         }
 
+        .file-item.active {
+            background: var(--active-bg);
+            border-left: 2px solid var(--link);
+        }
+
         .file-main {
             display: flex;
             align-items: center;
-            gap: 0.5rem;
+            gap: 0.4rem;
             overflow: hidden;
             white-space: nowrap;
             text-overflow: ellipsis;
@@ -139,42 +262,56 @@
             width: 1.2rem;
         }
 
-        .file-link {
+        .file-name-link {
             color: var(--link);
             text-decoration: none;
         }
 
-        .file-link:hover {
+        .file-name-link:hover {
             color: var(--link-hover);
             text-decoration: underline;
         }
 
         /* Highlight index.html */
-        .file-link.index-file {
+        .file-item.index-file .file-name-link {
             color: var(--accent);
             font-weight: bold;
         }
 
         .file-meta {
-            font-size: 0.85rem;
+            font-size: 0.75rem;
             color: var(--meta);
             white-space: nowrap;
-            margin-left: 1rem;
+            margin-left: 0.5rem;
+        }
+
+        .hover-hint {
+            display: none;
+            font-size: 0.65rem;
+            color: var(--meta);
+            background: var(--badge-bg);
+            padding: 1px 4px;
+            border-radius: 3px;
+            border: 1px solid var(--border);
+        }
+
+        .file-item:hover .hover-hint {
+            display: inline-block;
         }
 
         .search-wrapper {
-            margin: 0.5rem 0 0.5rem 0.5rem;
+            margin: 0.4rem 0 0.4rem 0.4rem;
         }
 
         .search-input {
-            width: calc(100% - 1rem);
-            max-width: 280px;
-            padding: 0.3rem 0.5rem;
+            width: calc(100% - 0.5rem);
+            max-width: 260px;
+            padding: 0.25rem 0.4rem;
             border: 1px solid var(--border);
             background: var(--bg);
             color: var(--text);
             font-family: inherit;
-            font-size: 0.85rem;
+            font-size: 0.75rem;
             outline: none;
             border-radius: 4px;
         }
@@ -186,60 +323,99 @@
         .empty-folder {
             color: var(--meta);
             font-style: italic;
-            padding: 0.5rem 1rem;
-            font-size: 0.85rem;
+            padding: 0.3rem 0.8rem;
+            font-size: 0.75rem;
         }
 
         .startup-prompt {
             text-align: center;
-            padding: 3rem 1.5rem;
+            padding: 2.5rem 1rem;
             background: var(--hover);
-            border-radius: 8px;
+            border-radius: 6px;
             border: 1px dashed var(--border);
-            margin-top: 1.5rem;
+            margin-top: 1rem;
         }
 
         .custom-file-upload {
             display: inline-block;
-            padding: 0.6rem 1.2rem;
+            padding: 0.5rem 1rem;
             cursor: pointer;
             background: var(--text);
             color: var(--bg);
             border-radius: 4px;
             font-weight: bold;
-            margin-top: 1rem;
-        }
-
-        input[type="file"] {
-            display: none;
+            margin-top: 0.75rem;
+            font-size: 0.8rem;
         }
 
         .loader {
             color: var(--link);
             font-weight: bold;
         }
+
+        @media (max-width: 900px) {
+            .workspace {
+                flex-direction: column;
+                overflow-y: auto;
+            }
+            .sidebar {
+                width: 100%;
+                max-height: 40vh;
+                border-right: none;
+                border-bottom: 1px dashed var(--border);
+            }
+            body {
+                overflow: auto;
+                height: auto;
+            }
+            .app-container {
+                height: auto;
+            }
+        }
     </style>
 </head>
 <body>
     <div class="app-container">
         <header>
-            <h1 id="app-title">~/Repository_Explorer</h1>
-            <div class="subtitle" id="app-subtitle">
-                <span>Auto-parsing files & folders...</span>
-                <span class="status-badge" id="mode-badge">Checking environment...</span>
+            <div>
+                <h1 id="app-title">~/Repository_Explorer</h1>
+                <div class="subtitle" id="app-subtitle">
+                    <span>Auto-parsing files & live preview</span>
+                    <span class="status-badge" id="mode-badge">Checking environment...</span>
+                </div>
             </div>
         </header>
         
-        <main id="tree-container">
-            <div class="startup-prompt">
-                <span class="loader">[ Processing Repository Contents... ]</span>
+        <div class="workspace">
+            <div class="sidebar" id="tree-container">
+                <div class="startup-prompt">
+                    <span class="loader">[ Processing Repository Contents... ]</span>
+                </div>
             </div>
-        </main>
+
+            <div class="preview-pane">
+                <div class="preview-header">
+                    <div class="preview-title-info">
+                        <span class="preview-filename" id="preview-file-title">No file selected</span>
+                        <span class="preview-filesize" id="preview-file-size"></span>
+                    </div>
+                    <a id="preview-external-link" href="#" target="_blank" class="external-btn" style="display: none;">
+                        <span>Open in New Tab</span>
+                        <span>&#8599;</span>
+                    </a>
+                </div>
+                <div class="preview-content" id="preview-viewport">
+                    <div class="preview-placeholder" id="preview-placeholder">
+                        <div style="font-size: 1.5rem;">&#128196;</div>
+                        <div>Select a file from the left tree to preview live on the right.</div>
+                        <div style="font-size: 0.75rem; color: var(--meta);">Hover over any file to preview info, click to load.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script>
-        
-        // Helper to format bytes
         function formatBytes(bytes, decimals = 2) {
             if (!bytes || bytes === 0) return '0 B';
             const k = 1024;
@@ -263,6 +439,34 @@
 
                 return a.name.localeCompare(b.name);
             });
+        }
+
+        let activeFileElement = null;
+
+        function loadFilePreview(node, fileItemEl) {
+            // Update active state in tree
+            if (activeFileElement) {
+                activeFileElement.classList.remove('active');
+            }
+            activeFileElement = fileItemEl;
+            activeFileElement.classList.add('active');
+
+            // Update header info
+            document.getElementById('preview-file-title').textContent = node.name;
+            document.getElementById('preview-file-size').textContent = node.size ? formatBytes(node.size) : '';
+            
+            const extLink = document.getElementById('preview-external-link');
+            extLink.href = node.url || '#';
+            extLink.style.display = 'flex';
+
+            // Render content in viewport
+            const viewport = document.getElementById('preview-viewport');
+            viewport.innerHTML = '';
+
+            const iframe = document.createElement('iframe');
+            iframe.className = 'preview-iframe';
+            iframe.src = node.url;
+            viewport.appendChild(iframe);
         }
 
         function renderNode(node, isRoot = false) {
@@ -290,13 +494,12 @@
 
                 header.addEventListener('click', () => {
                     const isOpen = childrenContainer.classList.toggle('open');
-                    icon.textContent = isOpen ? '[-]' : '[+]';
+                    icon.textContent = isOpen ? '[-] ' : '[+]';
                 });
 
                 wrapper.appendChild(header);
 
                 if (node.children && node.children.length > 0) {
-                    // Specific Folder-Only Search Box
                     const searchWrapper = document.createElement('div');
                     searchWrapper.className = 'search-wrapper';
                     
@@ -310,7 +513,7 @@
                         Array.from(itemsWrapper.children).forEach(childWrapper => {
                             const childName = childWrapper.dataset.name || '';
                             if (childName.includes(query)) {
-                                childWrapper.style.display = 'block';
+                                childWrapper.style.display = 'flex';
                             } else {
                                 childWrapper.style.display = 'none';
                             }
@@ -344,6 +547,9 @@
             } else {
                 const fileItem = document.createElement('div');
                 fileItem.className = 'file-item';
+                if (node.name.toLowerCase() === 'index.html') {
+                    fileItem.classList.add('index-file');
+                }
 
                 const mainDiv = document.createElement('div');
                 mainDiv.className = 'file-main';
@@ -352,25 +558,36 @@
                 fileIcon.className = 'file-icon';
                 fileIcon.innerHTML = '&#128196;';
 
-                const link = document.createElement('a');
-                link.className = 'file-link';
-                if (node.name.toLowerCase() === 'index.html') {
-                    link.classList.add('index-file');
-                }
-                
-                link.href = node.url || '#';
-                link.target = '_blank';
-                link.textContent = node.name;
+                const nameSpan = document.createElement('span');
+                nameSpan.className = 'file-name-link';
+                nameSpan.textContent = node.name;
 
                 mainDiv.appendChild(fileIcon);
-                mainDiv.appendChild(link);
+                mainDiv.appendChild(nameSpan);
+
+                const rightInfo = document.createElement('div');
+                rightInfo.style.display = 'flex';
+                rightInfo.style.alignItems = 'center';
+                rightInfo.style.gap = '0.5rem';
+
+                const hoverHint = document.createElement('span');
+                hoverHint.className = 'hover-hint';
+                hoverHint.textContent = 'click to preview';
+                rightInfo.appendChild(hoverHint);
 
                 const meta = document.createElement('span');
                 meta.className = 'file-meta';
                 meta.textContent = node.size ? formatBytes(node.size) : '';
+                rightInfo.appendChild(meta);
 
                 fileItem.appendChild(mainDiv);
-                fileItem.appendChild(meta);
+                fileItem.appendChild(rightInfo);
+
+                fileItem.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    loadFilePreview(node, fileItem);
+                });
+
                 wrapper.appendChild(fileItem);
             }
 
@@ -380,24 +597,23 @@
         const treeContainer = document.getElementById('tree-container');
         const modeBadge = document.getElementById('mode-badge');
 
-        // Check if hosted on GitHub Pages or web host
         async function tryGitHubAutoFetch() {
             const host = window.location.hostname;
             const pathname = window.location.pathname;
 
-            // Check if page is hosted on github.io
             if (host.endsWith('.github.io')) {
                 const owner = host.split('.')[0];
                 const repo = pathname.split('/')[1] || '';
 
                 if (owner && repo) {
-                    modeBadge.textContent = 'GitHub API Mode';
+                    modeBadge.textContent = 'GitHub Pages Mode';
                     try {
                         const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/git/trees/main?recursive=1`);
                         if (!response.ok) throw new Error('Repository tree fetch failed');
                         
                         const data = await response.json();
                         const root = { name: repo, type: 'folder', children: [] };
+                        const pageBase = window.location.origin + window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/') + 1);
 
                         data.tree.forEach(item => {
                             const parts = item.path.split('/');
@@ -411,7 +627,7 @@
                                             name: part,
                                             type: 'file',
                                             size: item.size,
-                                            url: `https://raw.githubusercontent.com/${owner}/${repo}/main/${item.path}`
+                                            url: pageBase + item.path
                                         });
                                     }
                                 } else {
@@ -436,19 +652,17 @@
             return false;
         }
 
-        // Render Local Folder Input Prompt
         function renderLocalPicker() {
             modeBadge.textContent = 'Local Mode';
             treeContainer.innerHTML = `
                 <div class="startup-prompt">
-                    <h2 style="margin-top:0; font-size:1.1rem;">Local File System Detection</h2>
-                    <p style="color:var(--meta); font-size:0.85rem;">
-                        Browsers block JS from automatically reading local disks without user input.<br>
-                        Click below to grant access to the folder where this <code>index.html</code> file resides.
+                    <h2 style="margin-top:0; font-size:1rem;">Local Folder Selection</h2>
+                    <p style="color:var(--meta); font-size:0.75rem;">
+                        Select your repository folder to explore & preview files.
                     </p>
                     <label class="custom-file-upload">
-                        Select Current Folder...
-                        <input type="file" id="folderInput" webkitdirectory directory multiple />
+                        Browse Folder...
+                        <input type="file" id="folderInput" webkitdirectory directory multiple style="display:none;" />
                     </label>
                 </div>
             `;
