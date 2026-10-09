@@ -1,0 +1,1059 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Minimalist GitHub Image & Repository Explorer</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            serif: ['"Playfair Display"', 'Georgia', 'Cambria', 'serif'],
+            sans: ['"Plus Jakarta Sans"', 'Inter', 'system-ui', 'sans-serif'],
+            mono: ['"Fira Code"', 'Consolas', 'Monaco', 'monospace']
+          },
+          colors: {
+            amber: {
+              400: '#fbbf24',
+              500: '#f59e0b',
+              600: '#d97706',
+            },
+            dark: {
+              950: '#0b0d14',
+              900: '#111420',
+              850: '#161a29',
+              800: '#1d2236',
+              700: '#2a314b'
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Google Fonts: Serif (Playfair Display) + Sans (Plus Jakarta Sans) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;0,700;0,800;1,600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  
+  <!-- Highlight.js for Syntax Highlighting -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+
+  <!-- Marked.js for Markdown Rendering -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+  <!-- Custom Styles for Glassmorphism and Custom Grid -->
+  <style>
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0b0d14;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #2a314b;
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #f59e0b;
+    }
+
+    .glass-card {
+      background: rgba(17, 20, 32, 0.75);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.07);
+    }
+
+    .glass-card-compact {
+      background: rgba(22, 26, 41, 0.85);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    /* Range slider custom styling */
+    input[type=range] {
+      accent-color: #f59e0b;
+    }
+
+    /* Dynamic Gallery Grid Columns */
+    #gallery-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 1rem;
+    }
+
+    /* Shimmer effect for skeleton loading */
+    @keyframes shimmer {
+      0% { background-position: -200% 0; }
+      100% { background-position: 200% 0; }
+    }
+    .skeleton-box {
+      background: linear-gradient(90deg, rgba(255,255,255,0.03) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.03) 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s infinite;
+    }
+  </style>
+</head>
+<body class="bg-dark-950 text-slate-200 min-h-screen flex flex-col font-sans antialiased selection:bg-amber-500/30 selection:text-amber-300">
+
+  <!-- Top Progress Loading Bar (Non-blocking) -->
+  <div id="top-loading-bar" class="fixed top-0 left-0 right-0 h-0.5 bg-amber-500 z-50 transition-all duration-300 opacity-0 w-0"></div>
+
+  <!-- Header Utilities Bar -->
+  <header class="border-b border-dark-800 bg-dark-950/90 backdrop-blur-md sticky top-0 z-40">
+    <div class="max-w-[1800px] mx-auto px-4 sm:px-6 lg:px-8 h-12 flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <span class="w-2 h-2 rounded-full bg-amber-500"></span>
+        <span class="font-serif font-bold text-sm tracking-wide text-amber-400">GitGallery</span>
+        <span class="text-[11px] text-slate-500 font-mono">v2.5</span>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <!-- Token Setup Button -->
+        <button id="btn-open-pat" class="flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-md bg-dark-900 border border-dark-800 hover:border-amber-500/40 text-slate-300 transition-all">
+          <i data-lucide="key" class="w-3.5 h-3.5 text-amber-400"></i>
+          <span>GitHub Token</span>
+          <span id="pat-indicator" class="w-1.5 h-1.5 rounded-full bg-slate-600"></span>
+        </button>
+
+        <a href="https://github.com" target="_blank" rel="noopener noreferrer" class="p-1.5 text-slate-400 hover:text-slate-200 transition-colors">
+          <i data-lucide="github" class="w-4 h-4"></i>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Compact Top Hero Section (Extended Horizontal Width) -->
+  <section class="max-w-[1800px] mx-auto w-full px-4 sm:px-6 lg:px-8 pt-4 pb-2">
+    <div class="glass-card rounded-xl p-4 sm:p-5 shadow-2xl relative overflow-hidden">
+      <!-- Minimalist Serif Heading -->
+      <div class="text-center max-w-4xl mx-auto space-y-1">
+        <h1 class="font-serif text-xl sm:text-2xl font-bold tracking-tight text-slate-100">
+          Minimalist GitHub Image & Repository Explorer
+        </h1>
+        <p class="text-xs text-slate-400 font-sans max-w-2xl mx-auto">
+          Parse any public GitHub repository to explore folder-scoped image galleries, tree hierarchies, and code viewers seamlessly.
+        </p>
+      </div>
+
+      <!-- Compact Search & Action Form -->
+      <form id="form-repo" class="mt-3.5 max-w-3xl mx-auto flex flex-col sm:flex-row items-center gap-2">
+        <div class="relative w-full flex-1">
+          <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
+            <i data-lucide="link" class="w-4 h-4"></i>
+          </div>
+          <input 
+            type="text" 
+            id="input-repo-url" 
+            placeholder="https://github.com/owner/repo or owner/repo" 
+            class="w-full pl-9 pr-20 py-2 bg-dark-900 border border-dark-800 rounded-lg text-xs font-mono text-slate-100 placeholder-slate-500 focus:outline-none focus:border-amber-500/60 transition-all"
+            required
+          />
+          <button 
+            type="button" 
+            id="btn-paste-url" 
+            class="absolute inset-y-1 right-1 px-2 py-1 text-[11px] font-sans font-medium text-slate-400 hover:text-slate-200 bg-dark-800 hover:bg-dark-700 rounded transition-colors flex items-center gap-1"
+            title="Paste from clipboard"
+          >
+            <i data-lucide="clipboard" class="w-3 h-3"></i>
+            <span>Paste</span>
+          </button>
+        </div>
+
+        <button 
+          type="submit" 
+          id="btn-fetch-repo" 
+          class="w-full sm:w-auto px-5 py-2 bg-amber-500 hover:bg-amber-400 text-dark-950 font-semibold text-xs rounded-lg transition-all shadow-md shadow-amber-500/10 flex items-center justify-center gap-1.5 shrink-0"
+        >
+          <i data-lucide="compass" class="w-3.5 h-3.5"></i>
+          <span id="btn-fetch-text">Explore Repo</span>
+        </button>
+      </form>
+
+      <!-- Compact Demo Pills -->
+      <div class="mt-2.5 flex items-center justify-center gap-2 text-[11px] text-slate-500 font-sans">
+        <span>Demos:</span>
+        <button type="button" class="preset-btn px-2 py-0.5 rounded bg-dark-900 border border-dark-800 hover:border-amber-500/40 text-slate-300 font-mono text-[10px] transition-colors" data-url="microsoft/fluentui-emoji">
+          fluentui-emoji
+        </button>
+        <button type="button" class="preset-btn px-2 py-0.5 rounded bg-dark-900 border border-dark-800 hover:border-amber-500/40 text-slate-300 font-mono text-[10px] transition-colors" data-url="lucide-icons/lucide">
+          lucide-icons
+        </button>
+        <button type="button" class="preset-btn px-2 py-0.5 rounded bg-dark-900 border border-dark-800 hover:border-amber-500/40 text-slate-300 font-mono text-[10px] transition-colors" data-url="twitter/twemoji">
+          twemoji
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Loaded Repo Header Meta & Tabs Container -->
+  <section id="repo-meta-section" class="hidden max-w-[1800px] mx-auto w-full px-4 sm:px-6 lg:px-8 py-2">
+    <div class="glass-card-compact rounded-xl p-3 flex flex-col md:flex-row items-center justify-between gap-3">
+      <!-- Repo Left Metadata -->
+      <div class="flex items-center gap-3 w-full md:w-auto overflow-hidden">
+        <img id="repo-avatar" src="" alt="Avatar" class="w-9 h-9 rounded-lg border border-dark-700 bg-dark-900 shrink-0">
+        <div class="min-w-0">
+          <div class="flex items-center gap-2">
+            <h2 id="repo-title" class="font-serif font-bold text-sm sm:text-base text-slate-100 truncate">
+              <!-- Dynamic owner / repo -->
+            </h2>
+            <span id="repo-visibility" class="px-1.5 py-0.2 text-[10px] font-mono rounded bg-dark-800 text-slate-400 border border-dark-700">Public</span>
+          </div>
+          <p id="repo-description" class="text-[11px] text-slate-400 font-sans truncate max-w-xl">
+            <!-- Dynamic description -->
+          </p>
+        </div>
+      </div>
+
+      <!-- Repo Right Indicators & Branch Select -->
+      <div class="flex items-center gap-2.5 shrink-0 w-full md:w-auto justify-between md:justify-end border-t md:border-t-0 border-dark-800 pt-2 md:pt-0">
+        <!-- Branch Selector -->
+        <div class="flex items-center gap-1.5 bg-dark-900 border border-dark-800 rounded-lg px-2 py-1 text-xs">
+          <i data-lucide="git-branch" class="w-3.5 h-3.5 text-amber-400"></i>
+          <select id="select-branch" class="bg-transparent text-slate-200 text-xs font-mono focus:outline-none cursor-pointer pr-1">
+            <!-- Dynamic branches -->
+          </select>
+        </div>
+
+        <!-- Star Badge -->
+        <div class="flex items-center gap-1 bg-dark-900 border border-dark-800 rounded-lg px-2.5 py-1 text-xs text-amber-300 font-mono">
+          <i data-lucide="star" class="w-3.5 h-3.5 text-amber-400 fill-amber-400"></i>
+          <span id="badge-stars">0</span>
+        </div>
+
+        <!-- Size Badge -->
+        <div class="flex items-center gap-1 bg-dark-900 border border-dark-800 rounded-lg px-2.5 py-1 text-xs text-emerald-400 font-mono">
+          <i data-lucide="database" class="w-3.5 h-3.5"></i>
+          <span id="badge-size">0 MB</span>
+        </div>
+
+        <!-- GitHub Link -->
+        <a id="link-github-repo" href="#" target="_blank" rel="noopener noreferrer" class="p-1 rounded-lg bg-dark-900 hover:bg-dark-800 border border-dark-800 text-slate-300 transition-colors" title="View on GitHub">
+          <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
+        </a>
+      </div>
+    </div>
+
+    <!-- Minimal View Tabs Header -->
+    <div class="mt-3 border-b border-dark-800 flex items-center gap-6 text-xs">
+      <button id="tab-gallery" class="tab-link active py-2.5 font-serif font-semibold border-b-2 border-amber-400 text-amber-400 flex items-center gap-2 transition-all">
+        <i data-lucide="layout-grid" class="w-4 h-4"></i>
+        <span>Image Gallery View</span>
+        <span id="tab-gallery-count" class="px-1.5 py-0.2 rounded text-[10px] font-mono bg-amber-500/20 text-amber-300">0</span>
+      </button>
+
+      <button id="tab-explorer" class="tab-link py-2.5 font-serif font-semibold border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center gap-2 transition-all">
+        <i data-lucide="folder-tree" class="w-4 h-4"></i>
+        <span>File Explorer View</span>
+        <span id="tab-explorer-count" class="px-1.5 py-0.2 rounded text-[10px] font-mono bg-dark-800 text-slate-400">0</span>
+      </button>
+    </div>
+  </section>
+
+  <!-- Main Wide View Area -->
+  <main class="flex-1 max-w-[1800px] mx-auto w-full px-4 sm:px-6 lg:px-8 py-4">
+    <!-- Empty Initial State -->
+    <div id="state-empty" class="glass-card rounded-xl p-12 text-center my-6 max-w-lg mx-auto space-y-3">
+      <div class="w-12 h-12 rounded-full bg-amber-500/10 text-amber-400 flex items-center justify-center mx-auto">
+        <i data-lucide="search" class="w-6 h-6"></i>
+      </div>
+      <h3 class="font-serif font-bold text-lg text-slate-200">No Repository Loaded</h3>
+      <p class="text-xs text-slate-400 font-sans">
+        Paste a GitHub repository URL or select a quick demo above to start browsing image galleries and source trees.
+      </p>
+    </div>
+
+    <!-- Error Banner -->
+    <div id="state-error" class="hidden bg-rose-950/40 border border-rose-800/60 rounded-xl p-4 my-4 text-center space-y-2">
+      <p id="error-message" class="text-xs text-rose-300 font-medium">An error occurred.</p>
+    </div>
+
+    <!-- TAB 1: IMAGE GALLERY VIEW -->
+    <div id="view-gallery" class="hidden space-y-4">
+      <!-- Advanced Controls Toolbar: Folder Filter, Search, Format, Image Size Slider -->
+      <div class="glass-card-compact p-3 rounded-xl flex flex-wrap items-center justify-between gap-3 text-xs">
+        
+        <!-- Left: Search & Specific Folder Filter Dropdown -->
+        <div class="flex flex-wrap items-center gap-2.5 flex-1 min-w-[280px]">
+          <!-- Folder Dropdown -->
+          <div class="flex items-center gap-1.5 bg-dark-900 border border-dark-800 rounded-lg px-2.5 py-1.5">
+            <i data-lucide="folder-open" class="w-3.5 h-3.5 text-amber-400 shrink-0"></i>
+            <select id="filter-folder" class="bg-transparent text-slate-200 text-xs font-sans focus:outline-none cursor-pointer max-w-[200px] sm:max-w-[260px] truncate">
+              <option value="ALL">All Folders</option>
+            </select>
+          </div>
+
+          <!-- Filename Search -->
+          <div class="relative flex-1 min-w-[160px]">
+            <i data-lucide="search" class="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500"></i>
+            <input 
+              type="text" 
+              id="filter-gallery-search" 
+              placeholder="Search images by name..." 
+              class="w-full pl-8 pr-3 py-1.5 bg-dark-900 border border-dark-800 rounded-lg text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-amber-500/50"
+            />
+          </div>
+        </div>
+
+        <!-- Right: Image Size Range Slider & Format Filters -->
+        <div class="flex flex-wrap items-center gap-3">
+          <!-- Image Thumbnail Size Slider -->
+          <div class="flex items-center gap-2 bg-dark-900 border border-dark-800 rounded-lg px-3 py-1">
+            <i data-lucide="image" class="w-3.5 h-3.5 text-slate-400 shrink-0"></i>
+            <span class="text-[11px] text-slate-400 shrink-0 font-serif">Size:</span>
+            <input 
+              type="range" 
+              id="gallery-size-slider" 
+              min="100" 
+              max="450" 
+              value="220" 
+              step="10" 
+              class="w-24 sm:w-32 h-1 bg-dark-800 rounded-lg appearance-none cursor-pointer"
+            />
+            <span id="gallery-size-label" class="text-[10px] font-mono text-amber-400 w-9 text-right shrink-0">220px</span>
+          </div>
+
+          <!-- Sort Select -->
+          <select id="select-gallery-sort" class="bg-dark-900 border border-dark-800 text-slate-300 text-xs rounded-lg px-2.5 py-1.5 focus:outline-none cursor-pointer">
+            <option value="name-asc">Sort: A-Z</option>
+            <option value="name-desc">Sort: Z-A</option>
+            <option value="size-desc">Sort: Largest</option>
+            <option value="size-asc">Sort: Smallest</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Format Filters Badges -->
+      <div id="filter-format-pills" class="flex items-center gap-1.5 overflow-x-auto pb-1 text-[11px]">
+        <!-- Dynamic format buttons -->
+      </div>
+
+      <!-- Image Grid -->
+      <div id="gallery-grid" class="min-h-[350px]">
+        <!-- Image cards dynamically populated -->
+      </div>
+
+      <!-- Empty Filter State -->
+      <div id="gallery-empty" class="hidden glass-card p-12 text-center rounded-xl text-slate-400">
+        <i data-lucide="image-off" class="w-8 h-8 mx-auto text-slate-600 mb-2"></i>
+        <p class="text-xs">No images match your active search or folder filter.</p>
+      </div>
+    </div>
+
+    <!-- TAB 2: FILE EXPLORER VIEW -->
+    <div id="view-explorer" class="hidden space-y-3">
+      <div class="glass-card-compact p-3 rounded-xl flex items-center justify-between gap-3">
+        <div class="relative flex-1">
+          <i data-lucide="search" class="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500"></i>
+          <input 
+            type="text" 
+            id="filter-explorer-search" 
+            placeholder="Filter files by name or extension (.js, .png, .md)..." 
+            class="w-full pl-8 pr-3 py-1.5 bg-dark-900 border border-dark-800 rounded-lg text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-amber-500/50"
+          />
+        </div>
+        <span id="explorer-file-count" class="text-xs text-slate-400 font-mono">0 files</span>
+      </div>
+
+      <!-- Tree Explorer Container -->
+      <div class="glass-card rounded-xl overflow-hidden border border-dark-800">
+        <div class="grid grid-cols-12 px-4 py-2.5 bg-dark-900/80 text-[11px] font-serif font-semibold text-slate-400 border-b border-dark-800">
+          <div class="col-span-8 sm:col-span-7">File / Path</div>
+          <div class="col-span-4 sm:col-span-3 text-right sm:text-left">Relative Directory</div>
+          <div class="hidden sm:block sm:col-span-2 text-right">Size</div>
+        </div>
+
+        <div id="file-tree-container" class="divide-y divide-dark-800/40 max-h-[650px] overflow-y-auto">
+          <!-- Files listed here -->
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- MODAL 1: LIGHTBOX POPUP -->
+  <div id="modal-lightbox" class="fixed inset-0 z-50 hidden bg-dark-950/95 backdrop-blur-md flex flex-col justify-between p-4">
+    <!-- Lightbox Header -->
+    <div class="flex items-center justify-between max-w-[1800px] mx-auto w-full">
+      <div class="flex items-center gap-3">
+        <span id="lb-counter" class="text-xs px-2 py-0.5 rounded bg-dark-800 text-amber-400 font-mono border border-dark-700">1 / 1</span>
+        <span id="lb-filename" class="font-serif text-sm font-bold text-slate-100 truncate max-w-sm"></span>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <button id="btn-lb-copy" class="p-1.5 rounded-lg bg-dark-900 hover:bg-dark-800 text-slate-300 transition-colors" title="Copy Raw URL">
+          <i data-lucide="copy" class="w-4 h-4"></i>
+        </button>
+        <a id="btn-lb-download" href="#" download target="_blank" class="p-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-dark-950 transition-colors" title="Download Image">
+          <i data-lucide="download" class="w-4 h-4"></i>
+        </a>
+        <button id="btn-lb-close" class="p-1.5 rounded-lg bg-dark-900 hover:bg-rose-600 text-slate-300 hover:text-white transition-colors" title="Close (Esc)">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- Lightbox Stage -->
+    <div class="relative flex-1 flex items-center justify-center my-3 overflow-hidden">
+      <button id="btn-lb-prev" class="absolute left-2 sm:left-6 z-10 p-2.5 rounded-full bg-dark-900/80 hover:bg-amber-500 hover:text-dark-950 text-slate-200 border border-dark-800 transition-colors">
+        <i data-lucide="chevron-left" class="w-5 h-5"></i>
+      </button>
+
+      <img id="lb-image" src="" alt="Lightbox View" class="max-w-full max-h-[78vh] object-contain rounded-lg shadow-2xl transition-transform duration-200">
+
+      <button id="btn-lb-next" class="absolute right-2 sm:right-6 z-10 p-2.5 rounded-full bg-dark-900/80 hover:bg-amber-500 hover:text-dark-950 text-slate-200 border border-dark-800 transition-colors">
+        <i data-lucide="chevron-right" class="w-5 h-5"></i>
+      </button>
+    </div>
+
+    <!-- Lightbox Footer -->
+    <div class="max-w-2xl mx-auto w-full glass-card-compact p-2.5 rounded-xl flex items-center justify-between text-xs text-slate-300 font-sans">
+      <div class="flex items-center gap-4 overflow-x-auto">
+        <span class="flex items-center gap-1 font-mono text-[11px] text-slate-400">
+          <i data-lucide="folder" class="w-3.5 h-3.5 text-amber-400"></i>
+          <span id="lb-path" class="truncate max-w-xs"></span>
+        </span>
+        <span id="lb-size" class="font-mono text-[11px] text-slate-400"></span>
+        <span id="lb-dimensions" class="font-mono text-[11px] text-emerald-400"></span>
+      </div>
+      <a id="lb-raw-link" href="#" target="_blank" class="text-amber-400 hover:underline flex items-center gap-1 text-xs shrink-0">
+        <span>Raw</span>
+        <i data-lucide="external-link" class="w-3 h-3"></i>
+      </a>
+    </div>
+  </div>
+
+  <!-- MODAL 2: FILE & CODE VIEWER -->
+  <div id="modal-file-viewer" class="fixed inset-0 z-50 hidden bg-dark-950/80 backdrop-blur-sm flex justify-end">
+    <div class="w-full max-w-3xl bg-dark-900 h-full border-l border-dark-800 flex flex-col shadow-2xl">
+      <div class="p-3 border-b border-dark-800 flex items-center justify-between gap-3">
+        <div class="flex items-center gap-2 overflow-hidden">
+          <i data-lucide="file-text" class="w-4 h-4 text-amber-400 shrink-0"></i>
+          <div>
+            <h3 id="file-viewer-title" class="font-serif font-bold text-xs text-slate-100 truncate"></h3>
+            <p id="file-viewer-path" class="text-[10px] font-mono text-slate-500 truncate"></p>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <button id="btn-file-copy" class="px-2.5 py-1 text-xs rounded bg-dark-800 hover:bg-dark-700 text-slate-300">Copy</button>
+          <a id="btn-file-download" href="#" download target="_blank" class="px-2.5 py-1 text-xs rounded bg-amber-500 text-dark-950 font-semibold">Download</a>
+          <button id="btn-file-close" class="p-1 rounded bg-dark-800 hover:bg-rose-600 text-slate-300 hover:text-white">
+            <i data-lucide="x" class="w-4 h-4"></i>
+          </button>
+        </div>
+      </div>
+
+      <div class="flex-1 overflow-y-auto p-4 relative">
+        <div id="file-viewer-loading" class="absolute inset-0 flex items-center justify-center bg-dark-900/80 text-amber-400 text-xs gap-2">
+          <i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i>
+          <span>Loading content...</span>
+        </div>
+
+        <pre id="file-code-container" class="hidden text-xs font-mono p-4 rounded-lg bg-dark-950 border border-dark-800 overflow-x-auto text-slate-200"><code id="file-code-content"></code></pre>
+        <div id="file-markdown-container" class="hidden prose dark:prose-invert max-w-none text-xs p-4 bg-dark-950 rounded-lg border border-dark-800"></div>
+        <div id="file-image-container" class="hidden flex items-center justify-center p-4">
+          <img id="file-image-preview" src="" alt="Preview" class="max-w-full max-h-[70vh] object-contain rounded-lg">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL 3: PAT TOKEN -->
+  <div id="modal-pat" class="fixed inset-0 z-50 hidden bg-dark-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="glass-card w-full max-w-md rounded-xl p-5 space-y-4 border border-dark-800">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <i data-lucide="key" class="w-4 h-4 text-amber-400"></i>
+          <h3 class="font-serif font-bold text-sm text-slate-100">GitHub Access Token</h3>
+        </div>
+        <button id="btn-pat-close" class="text-slate-400 hover:text-slate-200"><i data-lucide="x" class="w-4 h-4"></i></button>
+      </div>
+      <p class="text-xs text-slate-400">Add a GitHub PAT to increase rate limit from 60 to 5,000 requests/hr.</p>
+      <input type="password" id="input-pat-token" placeholder="ghp_... or github_pat_..." class="w-full px-3 py-2 bg-dark-900 border border-dark-800 rounded-lg text-xs text-slate-100 focus:outline-none focus:border-amber-500">
+      <div class="flex items-center justify-between pt-1">
+        <button id="btn-pat-clear" class="text-xs text-rose-400 hover:underline">Clear Token</button>
+        <button id="btn-pat-save" class="px-4 py-1.5 bg-amber-500 text-dark-950 font-semibold text-xs rounded-lg">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="toast-container" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+  <!-- JavaScript Logic -->
+  <script>
+    /* State Management */
+    const state = {
+      owner: '',
+      repo: '',
+      branch: '',
+      branches: [],
+      files: [],
+      images: [],
+      folders: [],
+      selectedFolder: 'ALL',
+      pat: localStorage.getItem('gitgallery_pat') || '',
+      activeTab: 'gallery',
+      selectedFormat: 'ALL',
+      lightboxIndex: 0,
+      gridSize: 220
+    };
+
+    const IMAGE_EXTENSIONS = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'ico', 'bmp', 'avif']);
+
+    /* DOM Cache */
+    const DOM = {
+      formRepo: document.getElementById('form-repo'),
+      inputRepoUrl: document.getElementById('input-repo-url'),
+      btnPasteUrl: document.getElementById('btn-paste-url'),
+      btnFetchRepo: document.getElementById('btn-fetch-repo'),
+      btnFetchText: document.getElementById('btn-fetch-text'),
+      topLoadingBar: document.getElementById('top-loading-bar'),
+      
+      repoMetaSection: document.getElementById('repo-meta-section'),
+      repoAvatar: document.getElementById('repo-avatar'),
+      repoTitle: document.getElementById('repo-title'),
+      repoDescription: document.getElementById('repo-description'),
+      selectBranch: document.getElementById('select-branch'),
+      badgeStars: document.getElementById('badge-stars'),
+      badgeSize: document.getElementById('badge-size'),
+      linkGithubRepo: document.getElementById('link-github-repo'),
+      
+      tabGallery: document.getElementById('tab-gallery'),
+      tabExplorer: document.getElementById('tab-explorer'),
+      tabGalleryCount: document.getElementById('tab-gallery-count'),
+      tabExplorerCount: document.getElementById('tab-explorer-count'),
+      
+      stateEmpty: document.getElementById('state-empty'),
+      stateError: document.getElementById('state-error'),
+      errorMessage: document.getElementById('error-message'),
+      
+      viewGallery: document.getElementById('view-gallery'),
+      viewExplorer: document.getElementById('view-explorer'),
+      
+      galleryGrid: document.getElementById('gallery-grid'),
+      galleryEmpty: document.getElementById('gallery-empty'),
+      filterFolder: document.getElementById('filter-folder'),
+      filterGallerySearch: document.getElementById('filter-gallery-search'),
+      filterFormatPills: document.getElementById('filter-format-pills'),
+      selectGallerySort: document.getElementById('select-gallery-sort'),
+      gallerySizeSlider: document.getElementById('gallery-size-slider'),
+      gallerySizeLabel: document.getElementById('gallery-size-label'),
+      
+      filterExplorerSearch: document.getElementById('filter-explorer-search'),
+      fileTreeContainer: document.getElementById('file-tree-container'),
+      explorerFileCount: document.getElementById('explorer-file-count'),
+      
+      modalLightbox: document.getElementById('modal-lightbox'),
+      lbFilename: document.getElementById('lb-filename'),
+      lbCounter: document.getElementById('lb-counter'),
+      lbImage: document.getElementById('lb-image'),
+      lbPath: document.getElementById('lb-path'),
+      lbSize: document.getElementById('lb-size'),
+      lbDimensions: document.getElementById('lb-dimensions'),
+      lbRawLink: document.getElementById('lb-raw-link'),
+      btnLbPrev: document.getElementById('btn-lb-prev'),
+      btnLbNext: document.getElementById('btn-lb-next'),
+      btnLbClose: document.getElementById('btn-lb-close'),
+      btnLbCopy: document.getElementById('btn-lb-copy'),
+      btnLbDownload: document.getElementById('btn-lb-download'),
+      
+      modalFileViewer: document.getElementById('modal-file-viewer'),
+      fileViewerTitle: document.getElementById('file-viewer-title'),
+      fileViewerPath: document.getElementById('file-viewer-path'),
+      fileViewerLoading: document.getElementById('file-viewer-loading'),
+      fileCodeContainer: document.getElementById('file-code-container'),
+      fileCodeContent: document.getElementById('file-code-content'),
+      fileMarkdownContainer: document.getElementById('file-markdown-container'),
+      fileImageContainer: document.getElementById('file-image-container'),
+      fileImagePreview: document.getElementById('file-image-preview'),
+      btnFileClose: document.getElementById('btn-file-close'),
+      btnFileCopy: document.getElementById('btn-file-copy'),
+      btnFileDownload: document.getElementById('btn-file-download'),
+      
+      btnOpenPat: document.getElementById('btn-open-pat'),
+      patIndicator: document.getElementById('pat-indicator'),
+      modalPat: document.getElementById('modal-pat'),
+      inputPatToken: document.getElementById('input-pat-token'),
+      btnPatSave: document.getElementById('btn-pat-save'),
+      btnPatClear: document.getElementById('btn-pat-clear'),
+      btnPatClose: document.getElementById('btn-pat-close')
+    };
+
+    /* Toast Notification */
+    function showToast(msg, type = 'info') {
+      const c = document.getElementById('toast-container');
+      const t = document.createElement('div');
+      t.className = `pointer-events-auto px-3 py-2 rounded-lg text-xs font-sans shadow-lg text-dark-950 font-semibold transition-all duration-300 ${type === 'error' ? 'bg-rose-400' : 'bg-amber-400'}`;
+      t.textContent = msg;
+      c.appendChild(t);
+      setTimeout(() => t.remove(), 2800);
+    }
+
+    function formatBytes(bytes) {
+      if (!bytes) return '0 B';
+      const k = 1024, s = ['B', 'KB', 'MB', 'GB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + s[i];
+    }
+
+    function parseGitHubUrl(urlStr) {
+      let cleaned = urlStr.trim().replace(/\/+$/, '').replace(/^https?:\/\/github\.com\//i, '');
+      const parts = cleaned.split('/');
+      if (parts.length >= 2) {
+        return { owner: parts[0], repo: parts[1].replace(/\.git$/i, ''), branch: parts[3] || '' };
+      }
+      return null;
+    }
+
+    function getFetchHeaders() {
+      const h = { 'Accept': 'application/vnd.github.v3+json' };
+      if (state.pat) h['Authorization'] = `token ${state.pat}`;
+      return h;
+    }
+
+    async function loadRepository(input) {
+      const parsed = parseGitHubUrl(input);
+      if (!parsed) {
+        showToast('Invalid GitHub URL format', 'error');
+        return;
+      }
+
+      state.owner = parsed.owner;
+      state.repo = parsed.repo;
+
+      // Unblocked Loading state
+      DOM.topLoadingBar.style.width = '40%';
+      DOM.topLoadingBar.style.opacity = '1';
+      DOM.btnFetchText.textContent = 'Fetching...';
+
+      try {
+        const repoRes = await fetch(`https://api.github.com/repos/${state.owner}/${state.repo}`, { headers: getFetchHeaders() });
+        if (!repoRes.ok) throw new Error(repoRes.status === 403 ? 'Rate limit exceeded. Add a GitHub Token.' : 'Repository not found');
+        
+        const repoData = await repoRes.json();
+        
+        DOM.repoAvatar.src = repoData.owner.avatar_url;
+        DOM.repoTitle.textContent = `${repoData.owner.login} / ${repoData.name}`;
+        DOM.repoDescription.textContent = repoData.description || 'No description available.';
+        DOM.badgeStars.textContent = repoData.stargazers_count.toLocaleString();
+        DOM.badgeSize.textContent = formatBytes(repoData.size * 1024);
+        DOM.linkGithubRepo.href = repoData.html_url;
+
+        await fetchBranches(parsed.branch || repoData.default_branch);
+        await fetchTree(state.branch);
+
+        DOM.stateEmpty.classList.add('hidden');
+        DOM.stateError.classList.add('hidden');
+        DOM.repoMetaSection.classList.remove('hidden');
+
+        switchTab(state.activeTab);
+        showToast(`Loaded ${state.owner}/${state.repo}`);
+
+      } catch (err) {
+        DOM.stateError.classList.remove('hidden');
+        DOM.errorMessage.textContent = err.message;
+        showToast(err.message, 'error');
+      } finally {
+        DOM.topLoadingBar.style.width = '100%';
+        setTimeout(() => { DOM.topLoadingBar.style.opacity = '0'; DOM.topLoadingBar.style.width = '0'; }, 300);
+        DOM.btnFetchText.textContent = 'Explore Repo';
+      }
+    }
+
+    async function fetchBranches(defaultBranch) {
+      try {
+        const res = await fetch(`https://api.github.com/repos/${state.owner}/${state.repo}/branches?per_page=100`, { headers: getFetchHeaders() });
+        if (res.ok) {
+          const branches = await res.json();
+          state.branches = branches.map(b => b.name);
+        } else {
+          state.branches = [defaultBranch];
+        }
+      } catch (e) {
+        state.branches = [defaultBranch];
+      }
+
+      state.branch = state.branches.includes(defaultBranch) ? defaultBranch : state.branches[0] || 'main';
+      DOM.selectBranch.innerHTML = state.branches.map(b => `<option value="${b}" ${b === state.branch ? 'selected' : ''}>${b}</option>`).join('');
+    }
+
+    async function fetchTree(branch) {
+      const res = await fetch(`https://api.github.com/repos/${state.owner}/${state.repo}/git/trees/${branch}?recursive=1`, { headers: getFetchHeaders() });
+      if (!res.ok) throw new Error('Failed to fetch file tree');
+
+      const data = await res.json();
+      state.files = (data.tree || []).filter(item => item.type === 'blob');
+      state.images = state.files.filter(item => IMAGE_EXTENSIONS.has(item.path.split('.').pop().toLowerCase()));
+
+      DOM.tabGalleryCount.textContent = state.images.length;
+      DOM.tabExplorerCount.textContent = state.files.length;
+
+      populateFolderDropdown();
+      renderFormatPills();
+      renderGallery();
+      renderExplorer();
+    }
+
+    function populateFolderDropdown() {
+      const folderSet = new Set();
+      state.images.forEach(img => {
+        const parts = img.path.split('/');
+        if (parts.length > 1) {
+          parts.pop();
+          folderSet.add(parts.join('/'));
+        } else {
+          folderSet.add('(root)');
+        }
+      });
+
+      state.folders = Array.from(folderSet).sort();
+      
+      let html = `<option value="ALL">All Folders (${state.images.length})</option>`;
+      state.folders.forEach(f => {
+        const count = state.images.filter(img => f === '(root)' ? !img.path.includes('/') : img.path.startsWith(f + '/')).length;
+        html += `<option value="${f}">${f} (${count})</option>`;
+      });
+
+      DOM.filterFolder.innerHTML = html;
+      state.selectedFolder = 'ALL';
+    }
+
+    function renderFormatPills() {
+      const formats = new Set();
+      state.images.forEach(img => formats.add(img.path.split('.').pop().toUpperCase()));
+
+      let html = `<button type="button" class="format-pill px-2 py-0.5 rounded font-mono ${state.selectedFormat === 'ALL' ? 'bg-amber-500 text-dark-950 font-bold' : 'bg-dark-900 border border-dark-800 text-slate-400'}" data-fmt="ALL">ALL</button>`;
+      Array.from(formats).sort().forEach(fmt => {
+        html += `<button type="button" class="format-pill px-2 py-0.5 rounded font-mono ${state.selectedFormat === fmt ? 'bg-amber-500 text-dark-950 font-bold' : 'bg-dark-900 border border-dark-800 text-slate-400'}" data-fmt="${fmt}">${fmt}</button>`;
+      });
+
+      DOM.filterFormatPills.innerHTML = html;
+      DOM.filterFormatPills.querySelectorAll('.format-pill').forEach(btn => {
+        btn.addEventListener('click', () => {
+          state.selectedFormat = btn.dataset.fmt;
+          renderFormatPills();
+          renderGallery();
+        });
+      });
+    }
+
+    function getRawUrl(path) {
+      return `https://raw.githubusercontent.com/${state.owner}/${state.repo}/${state.branch}/${path}`;
+    }
+
+    function renderGallery() {
+      const search = DOM.filterGallerySearch.value.toLowerCase().trim();
+      const sortVal = DOM.selectGallerySort.value;
+
+      let filtered = state.images.filter(img => {
+        const matchesSearch = img.path.toLowerCase().includes(search);
+        const ext = img.path.split('.').pop().toUpperCase();
+        const matchesFormat = state.selectedFormat === 'ALL' || ext === state.selectedFormat;
+        
+        let matchesFolder = true;
+        if (state.selectedFolder !== 'ALL') {
+          if (state.selectedFolder === '(root)') {
+            matchesFolder = !img.path.includes('/');
+          } else {
+            matchesFolder = img.path.startsWith(state.selectedFolder + '/');
+          }
+        }
+
+        return matchesSearch && matchesFormat && matchesFolder;
+      });
+
+      filtered.sort((a, b) => {
+        if (sortVal === 'name-asc') return a.path.localeCompare(b.path);
+        if (sortVal === 'name-desc') return b.path.localeCompare(a.path);
+        if (sortVal === 'size-desc') return (b.size || 0) - (a.size || 0);
+        if (sortVal === 'size-asc') return (a.size || 0) - (b.size || 0);
+        return 0;
+      });
+
+      if (filtered.length === 0) {
+        DOM.galleryGrid.innerHTML = '';
+        DOM.galleryEmpty.classList.remove('hidden');
+        return;
+      }
+
+      DOM.galleryEmpty.classList.add('hidden');
+
+      DOM.galleryGrid.innerHTML = filtered.map(img => {
+        const fileName = img.path.split('/').pop();
+        const rawUrl = getRawUrl(img.path);
+        const ext = img.path.split('.').pop().toUpperCase();
+
+        return `
+          <div class="group glass-card rounded-xl overflow-hidden border border-dark-800 hover:border-amber-500/50 transition-all flex flex-col justify-between cursor-pointer" onclick="openLightboxByPath('${img.path}')">
+            <div class="relative w-full h-36 bg-dark-950 flex items-center justify-center p-2 overflow-hidden">
+              <img src="${rawUrl}" alt="${fileName}" loading="lazy" class="max-w-full max-h-full object-contain group-hover:scale-105 transition-transform duration-200" onerror="this.onerror=null; this.src='https://placehold.co/200x150/111420/f59e0b?text=Image+Error';">
+              <span class="absolute top-2 right-2 px-1.5 py-0.2 text-[9px] font-mono font-bold rounded bg-dark-950/90 text-amber-400 border border-dark-700">${ext}</span>
+            </div>
+            <div class="p-2.5 bg-dark-900/90 border-t border-dark-800 space-y-0.5">
+              <p class="text-xs font-serif font-bold text-slate-100 truncate" title="${fileName}">${fileName}</p>
+              <div class="flex items-center justify-between text-[10px] font-mono text-slate-400">
+                <span class="truncate max-w-[120px]" title="${img.path}">${img.path}</span>
+                <span>${formatBytes(img.size)}</span>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    window.openLightboxByPath = function(path) {
+      const idx = state.images.findIndex(img => img.path === path);
+      if (idx !== -1) {
+        state.lightboxIndex = idx;
+        updateLightbox();
+        DOM.modalLightbox.classList.remove('hidden');
+      }
+    };
+
+    function updateLightbox() {
+      const img = state.images[state.lightboxIndex];
+      if (!img) return;
+
+      const fileName = img.path.split('/').pop();
+      const rawUrl = getRawUrl(img.path);
+
+      DOM.lbCounter.textContent = `${state.lightboxIndex + 1} / ${state.images.length}`;
+      DOM.lbFilename.textContent = fileName;
+      DOM.lbPath.textContent = img.path;
+      DOM.lbSize.textContent = formatBytes(img.size);
+      DOM.lbImage.src = rawUrl;
+      DOM.lbRawLink.href = rawUrl;
+      DOM.btnLbDownload.href = rawUrl;
+
+      DOM.lbDimensions.textContent = 'Loading dimensions...';
+      const tempImg = new Image();
+      tempImg.onload = function() {
+        DOM.lbDimensions.textContent = `${this.naturalWidth} × ${this.naturalHeight} px`;
+      };
+      tempImg.src = rawUrl;
+    }
+
+    function renderExplorer() {
+      const search = DOM.filterExplorerSearch.value.toLowerCase().trim();
+      let filtered = state.files.filter(f => f.path.toLowerCase().includes(search));
+
+      DOM.explorerFileCount.textContent = `${filtered.length} files`;
+
+      DOM.fileTreeContainer.innerHTML = filtered.slice(0, 300).map(file => {
+        const fileName = file.path.split('/').pop();
+        const ext = fileName.split('.').pop().toLowerCase();
+        
+        let icon = 'file';
+        let iconColor = 'text-slate-500';
+        if (IMAGE_EXTENSIONS.has(ext)) { icon = 'image'; iconColor = 'text-amber-400'; }
+        else if (['js','ts','py','cpp','html','css'].includes(ext)) { icon = 'code'; iconColor = 'text-cyan-400'; }
+
+        return `
+          <div class="grid grid-cols-12 px-4 py-2 text-xs hover:bg-dark-800/60 transition-colors items-center cursor-pointer font-sans" onclick="openFileViewer('${file.path}')">
+            <div class="col-span-8 sm:col-span-7 flex items-center gap-2 overflow-hidden">
+              <i data-lucide="${icon}" class="w-3.5 h-3.5 ${iconColor} shrink-0"></i>
+              <span class="font-medium text-slate-200 truncate" title="${fileName}">${fileName}</span>
+            </div>
+            <div class="col-span-4 sm:col-span-3 text-slate-400 truncate font-mono text-[11px]">${file.path}</div>
+            <div class="hidden sm:block sm:col-span-2 text-right text-slate-400 font-mono text-[11px]">${formatBytes(file.size)}</div>
+          </div>
+        `;
+      }).join('');
+
+      lucide.createIcons();
+    }
+
+    window.openFileViewer = async function(path) {
+      const file = state.files.find(f => f.path === path);
+      if (!file) return;
+
+      const fileName = file.path.split('/').pop();
+      const ext = fileName.split('.').pop().toLowerCase();
+      const rawUrl = getRawUrl(file.path);
+
+      DOM.fileViewerTitle.textContent = fileName;
+      DOM.fileViewerPath.textContent = file.path;
+      DOM.btnFileDownload.href = rawUrl;
+
+      DOM.fileCodeContainer.classList.add('hidden');
+      DOM.fileMarkdownContainer.classList.add('hidden');
+      DOM.fileImageContainer.classList.add('hidden');
+      DOM.fileViewerLoading.classList.remove('hidden');
+      DOM.modalFileViewer.classList.remove('hidden');
+
+      if (IMAGE_EXTENSIONS.has(ext)) {
+        DOM.fileViewerLoading.classList.add('hidden');
+        DOM.fileImagePreview.src = rawUrl;
+        DOM.fileImageContainer.classList.remove('hidden');
+      } else {
+        try {
+          const res = await fetch(rawUrl);
+          const content = await res.text();
+          DOM.fileViewerLoading.classList.add('hidden');
+
+          if (['md', 'markdown'].includes(ext)) {
+            DOM.fileMarkdownContainer.innerHTML = marked.parse(content);
+            DOM.fileMarkdownContainer.classList.remove('hidden');
+          } else {
+            DOM.fileCodeContent.textContent = content;
+            DOM.fileCodeContainer.classList.remove('hidden');
+            hljs.highlightElement(DOM.fileCodeContent);
+          }
+        } catch (e) {
+          DOM.fileViewerLoading.classList.add('hidden');
+          DOM.fileCodeContent.textContent = 'Error loading file content.';
+          DOM.fileCodeContainer.classList.remove('hidden');
+        }
+      }
+    };
+
+    function switchTab(tab) {
+      state.activeTab = tab;
+      [DOM.tabGallery, DOM.tabExplorer].forEach(b => {
+        b.classList.remove('border-amber-400', 'text-amber-400');
+        b.classList.add('border-transparent', 'text-slate-400');
+      });
+
+      DOM.viewGallery.classList.add('hidden');
+      DOM.viewExplorer.classList.add('hidden');
+
+      if (tab === 'gallery') {
+        DOM.tabGallery.classList.add('border-amber-400', 'text-amber-400');
+        DOM.viewGallery.classList.remove('hidden');
+      } else {
+        DOM.tabExplorer.classList.add('border-amber-400', 'text-amber-400');
+        DOM.viewExplorer.classList.remove('hidden');
+      }
+    }
+
+    function initEventListeners() {
+      DOM.formRepo.addEventListener('submit', e => {
+        e.preventDefault();
+        const url = DOM.inputRepoUrl.value.trim();
+        if (url) loadRepository(url);
+      });
+
+      DOM.btnPasteUrl.addEventListener('click', async () => {
+        try {
+          const txt = await navigator.clipboard.readText();
+          DOM.inputRepoUrl.value = txt;
+          showToast('Pasted URL');
+        } catch (e) {
+          showToast('Clipboard access denied', 'error');
+        }
+      });
+
+      document.querySelectorAll('.preset-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          DOM.inputRepoUrl.value = btn.dataset.url;
+          loadRepository(btn.dataset.url);
+        });
+      });
+
+      DOM.selectBranch.addEventListener('change', e => {
+        state.branch = e.target.value;
+        fetchTree(state.branch);
+      });
+
+      DOM.tabGallery.addEventListener('click', () => switchTab('gallery'));
+      DOM.tabExplorer.addEventListener('click', () => switchTab('explorer'));
+
+      DOM.filterFolder.addEventListener('change', e => {
+        state.selectedFolder = e.target.value;
+        renderGallery();
+      });
+
+      DOM.filterGallerySearch.addEventListener('input', renderGallery);
+      DOM.selectGallerySort.addEventListener('change', renderGallery);
+      DOM.filterExplorerSearch.addEventListener('input', renderExplorer);
+
+      /* Image Grid Size Slider Handler */
+      DOM.gallerySizeSlider.addEventListener('input', e => {
+        const val = e.target.value;
+        state.gridSize = val;
+        DOM.gallerySizeLabel.textContent = `${val}px`;
+        DOM.galleryGrid.style.gridTemplateColumns = `repeat(auto-fill, minmax(${val}px, 1fr))`;
+      });
+
+      /* Lightbox Controls */
+      DOM.btnLbPrev.addEventListener('click', () => {
+        state.lightboxIndex = (state.lightboxIndex - 1 + state.images.length) % state.images.length;
+        updateLightbox();
+      });
+
+      DOM.btnLbNext.addEventListener('click', () => {
+        state.lightboxIndex = (state.lightboxIndex + 1) % state.images.length;
+        updateLightbox();
+      });
+
+      DOM.btnLbClose.addEventListener('click', () => DOM.modalLightbox.classList.add('hidden'));
+
+      DOM.btnLbCopy.addEventListener('click', () => {
+        const rawUrl = getRawUrl(state.images[state.lightboxIndex].path);
+        const temp = document.createElement('textarea');
+        temp.value = rawUrl;
+        document.body.appendChild(temp);
+        temp.select();
+        document.execCommand('copy');
+        document.body.removeChild(temp);
+        showToast('Raw URL copied!');
+      });
+
+      window.addEventListener('keydown', e => {
+        if (!DOM.modalLightbox.classList.contains('hidden')) {
+          if (e.key === 'ArrowLeft') DOM.btnLbPrev.click();
+          if (e.key === 'ArrowRight') DOM.btnLbNext.click();
+          if (e.key === 'Escape') DOM.btnLbClose.click();
+        }
+      });
+
+      DOM.btnFileClose.addEventListener('click', () => DOM.modalFileViewer.classList.add('hidden'));
+
+      DOM.btnOpenPat.addEventListener('click', () => {
+        DOM.inputPatToken.value = state.pat;
+        DOM.modalPat.classList.remove('hidden');
+      });
+
+      DOM.btnPatClose.addEventListener('click', () => DOM.modalPat.classList.add('hidden'));
+
+      DOM.btnPatSave.addEventListener('click', () => {
+        state.pat = DOM.inputPatToken.value.trim();
+        localStorage.setItem('gitgallery_pat', state.pat);
+        DOM.patIndicator.className = state.pat ? 'w-1.5 h-1.5 rounded-full bg-emerald-400' : 'w-1.5 h-1.5 rounded-full bg-slate-600';
+        DOM.modalPat.classList.add('hidden');
+        showToast('Token saved');
+      });
+
+      DOM.btnPatClear.addEventListener('click', () => {
+        state.pat = '';
+        localStorage.removeItem('gitgallery_pat');
+        DOM.inputPatToken.value = '';
+        DOM.patIndicator.className = 'w-1.5 h-1.5 rounded-full bg-slate-600';
+        showToast('Token cleared');
+      });
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      lucide.createIcons();
+      initEventListeners();
+      if (state.pat) DOM.patIndicator.className = 'w-1.5 h-1.5 rounded-full bg-emerald-400';
+
+      const demoUrl = 'microsoft/fluentui-emoji';
+      DOM.inputRepoUrl.value = demoUrl;
+      loadRepository(demoUrl);
+    });
+  </script>
+</body>
+</html>

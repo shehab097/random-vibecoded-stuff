@@ -1,0 +1,1340 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GitGallery & Repo Explorer</title>
+  
+  <!-- Google Fonts: Playfair Display for elegant serif typography & Inter for crisp UI text -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            serif: ['"Playfair Display"', 'Georgia', 'serif'],
+            mono: ['"JetBrains Mono"', 'monospace'],
+          },
+          colors: {
+            brand: {
+              50: '#f4f4f6',
+              100: '#e6e6eb',
+              400: '#a3a3bd',
+              500: '#7c7c9a',
+              600: '#5c5c78',
+              700: '#424259',
+              800: '#282838',
+              900: '#141420',
+              950: '#0b0b12',
+            },
+            accent: {
+              400: '#f59e0b',
+              500: '#d97706',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  
+  <!-- Highlight.js for Code Highlighting -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+
+  <!-- Marked.js for Markdown Rendering -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+  <style>
+    /* Custom Sleek Scrollbars */
+    ::-webkit-scrollbar {
+      width: 7px;
+      height: 7px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0b0b12;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #282838;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #424259;
+    }
+
+    /* Glassmorphism Surface Style */
+    .glass-card {
+      background: rgba(20, 20, 32, 0.7);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.07);
+    }
+    .light .glass-card {
+      background: rgba(255, 255, 255, 0.85);
+      border: 1px solid rgba(0, 0, 0, 0.08);
+    }
+
+    /* Dynamic Fluid Image Grid */
+    .dynamic-gallery-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(var(--card-min-width, 240px), 1fr));
+      gap: 1.25rem;
+      align-items: start;
+    }
+
+    /* Range Slider Theme Styling */
+    input[type=range] {
+      accent-color: #f59e0b;
+    }
+
+    /* Shimmer Skeleton Animation */
+    @keyframes shimmer {
+      0% { background-position: -200% 0; }
+      100% { background-position: 200% 0; }
+    }
+    .skeleton-loader {
+      background: linear-gradient(90deg, rgba(255,255,255,0.03) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.03) 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s infinite;
+    }
+  </style>
+</head>
+
+<body class="bg-[#08080e] text-slate-200 min-h-screen flex flex-col font-sans transition-colors duration-200 light:bg-slate-50 light:text-slate-900 selection:bg-amber-500/30 selection:text-amber-200">
+
+  <!-- Header Bar -->
+  <header class="sticky top-0 z-30 border-b border-slate-800/80 bg-[#08080e]/90 backdrop-blur-md light:bg-white/90 light:border-slate-200">
+    <div class="w-full max-w-[1800px] mx-auto px-4 sm:px-8 h-16 flex items-center justify-between gap-4">
+      
+      <!-- Brand & Title -->
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-amber-500 to-amber-300 flex items-center justify-center text-slate-950 font-bold shadow-lg shadow-amber-500/20">
+          <i data-lucide="gallery-thumbnails" class="w-5 h-5"></i>
+        </div>
+        <div>
+          <h1 class="font-serif font-bold text-lg tracking-tight text-slate-100 flex items-center gap-2 light:text-slate-900">
+            GitGallery
+            <span class="font-sans text-[10px] uppercase font-semibold px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">Explorer</span>
+          </h1>
+        </div>
+      </div>
+
+      <!-- Action Items -->
+      <div class="flex items-center gap-3">
+        <!-- GitHub Token Config Button -->
+        <button id="btn-open-pat" class="flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-300 transition-all light:bg-slate-100 light:border-slate-300 light:text-slate-700">
+          <i data-lucide="key" class="w-3.5 h-3.5 text-amber-400"></i>
+          <span class="hidden sm:inline">API Token</span>
+          <span id="pat-status-dot" class="w-2 h-2 rounded-full bg-slate-600"></span>
+        </button>
+
+        <!-- Theme Toggle -->
+        <button id="btn-theme-toggle" class="p-2 rounded-lg bg-slate-900 border border-slate-800 text-slate-400 hover:text-slate-200 transition-colors light:bg-slate-100 light:border-slate-300 light:text-slate-700" title="Toggle Light/Dark Theme">
+          <i data-lucide="sun" class="w-4 h-4 hidden dark:block text-amber-400"></i>
+          <i data-lucide="moon" class="w-4 h-4 block dark:hidden text-slate-700"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Hero & Input Banner (Compact) -->
+  <section class="w-full max-w-[1800px] mx-auto px-4 sm:px-8 pt-6 pb-2">
+    <div class="glass-card p-5 sm:p-6 rounded-2xl relative overflow-hidden">
+      <div class="max-w-4xl mx-auto space-y-3 text-center">
+        
+        <h2 class="font-serif text-2xl sm:text-3xl font-normal tracking-tight text-slate-100 light:text-slate-900">
+          Minimalist GitHub Image & Repository Explorer
+        </h2>
+        <p class="text-xs sm:text-sm text-slate-400 light:text-slate-600 font-light">
+          Parse any public GitHub repository to explore folder-scoped image galleries, tree hierarchies, and code viewers seamlessly.
+        </p>
+
+        <!-- Input Form (Starts Empty) -->
+        <form id="form-repo" class="mt-4 flex flex-col sm:flex-row gap-2 relative max-w-2xl mx-auto">
+          <div class="relative flex-1">
+            <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
+              <i data-lucide="link-2" class="w-4 h-4"></i>
+            </div>
+            <!-- Input starts completely empty -->
+            <input 
+              type="text" 
+              id="input-repo-url" 
+              placeholder="Paste GitHub repository URL (e.g., https://github.com/owner/repository)" 
+              class="w-full pl-10 pr-24 py-2.5 bg-slate-950/80 border border-slate-800 rounded-xl text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-amber-500/70 focus:border-amber-500/50 text-xs sm:text-sm font-mono transition-all light:bg-white light:border-slate-300 light:text-slate-900"
+              required
+            />
+            <button 
+              type="button" 
+              id="btn-paste-url" 
+              class="absolute inset-y-1.5 right-1.5 px-2.5 py-1 text-[11px] font-medium text-slate-400 hover:text-slate-200 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-lg transition-colors flex items-center gap-1 light:bg-slate-100 light:text-slate-700 light:border-slate-200"
+              title="Paste clipboard text"
+            >
+              <i data-lucide="clipboard" class="w-3.5 h-3.5"></i>
+              <span>Paste</span>
+            </button>
+          </div>
+          
+          <button 
+            type="submit" 
+            id="btn-fetch-repo" 
+            class="px-5 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold text-xs sm:text-sm rounded-xl transition-all shadow-md shadow-amber-500/10 flex items-center justify-center gap-2 active:scale-[0.98] shrink-0"
+          >
+            <i data-lucide="compass" class="w-4 h-4"></i>
+            <span id="btn-fetch-text">Explore Repo</span>
+          </button>
+        </form>
+
+        <!-- Quick Demo Chips -->
+        <div class="pt-2 flex flex-wrap items-center justify-center gap-2 text-[11px] text-slate-400">
+          <span class="text-slate-500 font-medium mr-1">Demos:</span>
+          <button type="button" class="preset-badge px-2.5 py-0.5 rounded-md bg-slate-900/80 hover:bg-amber-500/10 hover:text-amber-400 border border-slate-800 text-slate-300 font-mono transition-all light:bg-slate-100 light:border-slate-300 light:text-slate-700" data-url="microsoft/fluentui-emoji">
+            fluentui-emoji
+          </button>
+          <button type="button" class="preset-badge px-2.5 py-0.5 rounded-md bg-slate-900/80 hover:bg-amber-500/10 hover:text-amber-400 border border-slate-800 text-slate-300 font-mono transition-all light:bg-slate-100 light:border-slate-300 light:text-slate-700" data-url="lucide-icons/lucide">
+            lucide-icons
+          </button>
+          <button type="button" class="preset-badge px-2.5 py-0.5 rounded-md bg-slate-900/80 hover:bg-amber-500/10 hover:text-amber-400 border border-slate-800 text-slate-300 font-mono transition-all light:bg-slate-100 light:border-slate-300 light:text-slate-700" data-url="twitter/twemoji">
+            twemoji
+          </button>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- Repository Compact Metadata Bar (Hidden by default until loaded) -->
+  <section id="repo-meta-bar" class="hidden w-full max-w-[1800px] mx-auto px-4 sm:px-8 mt-4">
+    <div class="glass-card rounded-xl p-3.5 sm:p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+      
+      <!-- Repo Avatar & Details -->
+      <div class="flex items-center gap-3">
+        <img id="repo-avatar" src="" alt="Avatar" class="w-10 h-10 rounded-lg border border-slate-700 shadow-sm object-cover">
+        <div>
+          <div class="flex items-center gap-2 flex-wrap">
+            <h3 id="repo-title" class="font-serif font-bold text-base text-slate-100 light:text-slate-900">
+              <!-- Owner / Repository -->
+            </h3>
+            <span id="repo-visibility" class="px-2 py-0.5 text-[10px] font-mono rounded bg-slate-800 text-slate-400 border border-slate-700">Public</span>
+          </div>
+          <p id="repo-description" class="text-xs text-slate-400 light:text-slate-600 mt-0.5 line-clamp-1 font-light">
+            <!-- Repo Description -->
+          </p>
+        </div>
+      </div>
+
+      <!-- Repo Right Actions & Stats -->
+      <div class="flex items-center gap-3 w-full md:w-auto justify-between md:justify-end border-t md:border-t-0 border-slate-800 pt-2.5 md:pt-0 light:border-slate-200">
+        <!-- Branch Selector -->
+        <div class="flex items-center gap-1.5 text-xs">
+          <i data-lucide="git-branch" class="w-3.5 h-3.5 text-amber-400"></i>
+          <select id="select-branch" class="bg-slate-900 border border-slate-800 text-slate-300 text-xs font-mono rounded-md px-2.5 py-1 focus:outline-none focus:ring-1 focus:ring-amber-500 cursor-pointer light:bg-slate-100 light:border-slate-300 light:text-slate-800">
+            <!-- Dynamically populated branches -->
+          </select>
+        </div>
+
+        <!-- Badges -->
+        <div class="flex items-center gap-2 font-mono text-xs">
+          <span class="flex items-center gap-1 px-2.5 py-1 rounded-md bg-slate-900 border border-slate-800 text-amber-300 light:bg-slate-100 light:border-slate-300">
+            <i data-lucide="star" class="w-3 h-3 text-amber-400 fill-amber-400"></i>
+            <span id="badge-stars">0</span>
+          </span>
+          <span class="flex items-center gap-1 px-2.5 py-1 rounded-md bg-slate-900 border border-slate-800 text-slate-300 light:bg-slate-100 light:border-slate-300">
+            <i data-lucide="hard-drive" class="w-3 h-3 text-slate-400"></i>
+            <span id="badge-size">0 MB</span>
+          </span>
+          <a id="link-github-repo" href="#" target="_blank" rel="noopener noreferrer" class="p-1 rounded-md bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 light:bg-slate-100 light:border-slate-300" title="View on GitHub">
+            <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <div class="mt-4 flex border-b border-slate-800/80 light:border-slate-200 gap-2 sm:gap-6">
+      <button id="tab-gallery" class="tab-btn active px-3 py-2.5 font-serif font-semibold text-xs sm:text-sm border-b-2 border-amber-500 text-amber-400 flex items-center gap-2 transition-colors whitespace-nowrap">
+        <i data-lucide="layout-grid" class="w-4 h-4"></i>
+        <span>Image Gallery View</span>
+        <span id="tab-gallery-count" class="px-2 py-0.5 text-[10px] font-mono rounded-full bg-amber-500/10 text-amber-400">0</span>
+      </button>
+
+      <button id="tab-explorer" class="tab-btn px-3 py-2.5 font-serif font-normal text-xs sm:text-sm border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center gap-2 transition-colors whitespace-nowrap light:text-slate-600 light:hover:text-slate-900">
+        <i data-lucide="folder-tree" class="w-4 h-4"></i>
+        <span>File Explorer View</span>
+        <span id="tab-explorer-count" class="px-2 py-0.5 text-[10px] font-mono rounded-full bg-slate-800 text-slate-400 light:bg-slate-200 light:text-slate-700">0</span>
+      </button>
+
+      <button id="tab-stats" class="tab-btn px-3 py-2.5 font-serif font-normal text-xs sm:text-sm border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center gap-2 transition-colors whitespace-nowrap light:text-slate-600 light:hover:text-slate-900">
+        <i data-lucide="pie-chart" class="w-4 h-4"></i>
+        <span>Repository Stats</span>
+      </button>
+    </div>
+  </section>
+
+  <!-- Main View Area -->
+  <main class="flex-1 w-full max-w-[1800px] mx-auto px-4 sm:px-8 py-6">
+    
+    <!-- Initial Empty Placeholder State -->
+    <div id="state-empty" class="glass-card rounded-2xl p-12 text-center my-6 max-w-lg mx-auto space-y-3">
+      <div class="w-12 h-12 rounded-xl bg-slate-900 border border-slate-800 text-amber-400 flex items-center justify-center mx-auto shadow-inner">
+        <i data-lucide="search" class="w-6 h-6"></i>
+      </div>
+      <h3 class="font-serif text-lg font-bold text-slate-200 light:text-slate-900">Ready to Explore</h3>
+      <p class="text-xs text-slate-400 light:text-slate-600 font-light">
+        Paste a GitHub repository link in the box above or pick a demo repository to load images and files.
+      </p>
+    </div>
+
+    <!-- Loading Skeleton View -->
+    <div id="state-loading" class="hidden glass-card rounded-2xl p-6 my-6 space-y-6">
+      <div class="flex items-center gap-3">
+        <div class="w-6 h-6 rounded-full skeleton-loader"></div>
+        <div class="space-y-2 flex-1">
+          <div class="h-3 w-1/4 rounded skeleton-loader"></div>
+          <div class="h-2 w-1/2 rounded skeleton-loader"></div>
+        </div>
+      </div>
+      <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+        <div class="h-40 rounded-xl skeleton-loader"></div>
+        <div class="h-40 rounded-xl skeleton-loader"></div>
+        <div class="h-40 rounded-xl skeleton-loader"></div>
+        <div class="h-40 rounded-xl skeleton-loader"></div>
+        <div class="h-40 rounded-xl skeleton-loader"></div>
+        <div class="h-40 rounded-xl skeleton-loader"></div>
+      </div>
+      <p class="text-center text-xs text-amber-400 animate-pulse font-mono">Fetching git tree index from GitHub API...</p>
+    </div>
+
+    <!-- Error View Banner -->
+    <div id="state-error" class="hidden bg-rose-500/10 border border-rose-500/30 rounded-2xl p-6 my-6 text-rose-300 text-center space-y-2">
+      <i data-lucide="alert-circle" class="w-8 h-8 mx-auto text-rose-400"></i>
+      <h3 id="error-title" class="font-serif text-base font-bold text-rose-200">Error Loading Repository</h3>
+      <p id="error-message" class="text-xs text-rose-300/80 max-w-md mx-auto font-light">Unable to retrieve repo data.</p>
+    </div>
+
+    <!-- TAB 1: IMAGE GALLERY VIEW -->
+    <div id="view-gallery" class="hidden space-y-5">
+      
+      <!-- Gallery Filter & Controls Toolbar -->
+      <div class="glass-card p-3 sm:p-4 rounded-xl flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4">
+        
+        <!-- Search & Folder Selection Row -->
+        <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 flex-1">
+          <!-- Text Search Filter -->
+          <div class="relative flex-1 min-w-[200px]">
+            <i data-lucide="search" class="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500"></i>
+            <input 
+              type="text" 
+              id="filter-gallery-search" 
+              placeholder="Search filename..." 
+              class="w-full pl-8 pr-3 py-1.5 bg-slate-950/80 border border-slate-800 rounded-lg text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-amber-500 light:bg-white light:border-slate-300 light:text-slate-900"
+            />
+          </div>
+
+          <!-- Folder Specific Filter Dropdown -->
+          <div class="relative flex-1 min-w-[200px]">
+            <div class="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-amber-400">
+              <i data-lucide="folder-symlink" class="w-3.5 h-3.5"></i>
+            </div>
+            <select id="filter-folder-select" class="w-full pl-8 pr-3 py-1.5 bg-slate-950/80 border border-slate-800 text-slate-200 text-xs rounded-lg focus:outline-none focus:ring-1 focus:ring-amber-500 cursor-pointer light:bg-white light:border-slate-300 light:text-slate-900 truncate">
+              <option value="ALL">📁 All Folders (Entire Repo)</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Formatting, Sorting & Size Slider Controls -->
+        <div class="flex flex-wrap items-center gap-3">
+          <!-- Format Filter Chips -->
+          <div id="filter-format-pills" class="flex items-center gap-1 overflow-x-auto pb-1 sm:pb-0">
+            <!-- Injected format pills -->
+          </div>
+
+          <!-- Image Size Slider (Resizes images proportionally) -->
+          <div class="flex items-center gap-2 bg-slate-950/80 border border-slate-800 px-3 py-1 rounded-lg light:bg-white light:border-slate-300">
+            <i data-lucide="image" class="w-3.5 h-3.5 text-slate-400"></i>
+            <input 
+              type="range" 
+              id="gallery-size-slider" 
+              min="140" 
+              max="480" 
+              value="240" 
+              step="10"
+              class="w-24 sm:w-28 cursor-pointer h-1.5 rounded-lg bg-slate-800" 
+              title="Adjust Image Card Size"
+            />
+            <span id="gallery-size-val" class="text-[10px] font-mono text-amber-400 w-8 text-right">240px</span>
+          </div>
+
+          <!-- Sort Dropdown -->
+          <select id="select-gallery-sort" class="bg-slate-950/80 border border-slate-800 text-slate-300 text-xs rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-amber-500 cursor-pointer light:bg-white light:border-slate-300 light:text-slate-800">
+            <option value="name-asc">Sort: Name (A-Z)</option>
+            <option value="name-desc">Sort: Name (Z-A)</option>
+            <option value="size-desc">Sort: Size (Largest)</option>
+            <option value="size-asc">Sort: Size (Smallest)</option>
+          </select>
+        </div>
+
+      </div>
+
+      <!-- Proportional Height Dynamic Gallery Grid -->
+      <div id="gallery-grid" class="dynamic-gallery-grid min-h-[300px]">
+        <!-- Image cards injected dynamically -->
+      </div>
+
+      <!-- Empty Filter Result -->
+      <div id="gallery-empty" class="hidden glass-card p-12 text-center rounded-xl text-slate-400">
+        <i data-lucide="image-off" class="w-8 h-8 mx-auto text-slate-500 mb-2"></i>
+        <p class="text-xs">No images match your current filter selections.</p>
+      </div>
+    </div>
+
+    <!-- TAB 2: FILE EXPLORER VIEW -->
+    <div id="view-explorer" class="hidden space-y-4">
+      <div class="glass-card p-3 rounded-xl flex items-center justify-between gap-3">
+        <!-- Search Files -->
+        <div class="relative flex-1">
+          <i data-lucide="search" class="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500"></i>
+          <input 
+            type="text" 
+            id="filter-explorer-search" 
+            placeholder="Filter file path or extension (.js, .md, .png)..." 
+            class="w-full pl-8 pr-3 py-1.5 bg-slate-950/80 border border-slate-800 rounded-lg text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-amber-500 light:bg-white light:border-slate-300 light:text-slate-900 font-mono"
+          />
+        </div>
+      </div>
+
+      <!-- File Table -->
+      <div class="glass-card rounded-xl overflow-hidden border border-slate-800/80 light:border-slate-200">
+        <div class="grid grid-cols-12 px-4 py-2.5 bg-slate-950/80 text-[11px] font-mono font-semibold text-slate-400 border-b border-slate-800 light:bg-slate-100 light:border-slate-200 light:text-slate-600">
+          <div class="col-span-8 sm:col-span-7">File Name</div>
+          <div class="col-span-4 sm:col-span-3 text-right sm:text-left">Relative Path</div>
+          <div class="hidden sm:block sm:col-span-2 text-right">Size</div>
+        </div>
+
+        <div id="file-tree-container" class="divide-y divide-slate-800/40 max-h-[650px] overflow-y-auto light:divide-slate-200">
+          <!-- Dynamically populated files -->
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 3: STATS & OVERVIEW -->
+    <div id="view-stats" class="hidden space-y-5">
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        
+        <div class="glass-card rounded-xl p-4 space-y-1">
+          <div class="flex items-center justify-between text-slate-400 text-xs">
+            <span>Total Indexed Files</span>
+            <i data-lucide="files" class="w-4 h-4 text-amber-400"></i>
+          </div>
+          <p id="stat-total-files" class="text-2xl font-bold font-mono text-slate-100 light:text-slate-900">0</p>
+        </div>
+
+        <div class="glass-card rounded-xl p-4 space-y-1">
+          <div class="flex items-center justify-between text-slate-400 text-xs">
+            <span>Total Image Assets</span>
+            <i data-lucide="image" class="w-4 h-4 text-emerald-400"></i>
+          </div>
+          <p id="stat-total-images" class="text-2xl font-bold font-mono text-emerald-400">0</p>
+          <p id="stat-image-ratio" class="text-[10px] text-slate-500 font-mono">0% of total files</p>
+        </div>
+
+        <div class="glass-card rounded-xl p-4 space-y-1">
+          <div class="flex items-center justify-between text-slate-400 text-xs">
+            <span>Tree File Size</span>
+            <i data-lucide="hard-drive" class="w-4 h-4 text-cyan-400"></i>
+          </div>
+          <p id="stat-repo-size" class="text-2xl font-bold font-mono text-cyan-400">0 KB</p>
+        </div>
+
+        <div class="glass-card rounded-xl p-4 space-y-1">
+          <div class="flex items-center justify-between text-slate-400 text-xs">
+            <span>Detected Extensions</span>
+            <i data-lucide="code-2" class="w-4 h-4 text-amber-400"></i>
+          </div>
+          <p id="stat-unique-exts" class="text-2xl font-bold font-mono text-amber-400">0</p>
+        </div>
+      </div>
+
+      <!-- Extension Breakdown Bar -->
+      <div class="glass-card rounded-xl p-5 space-y-3">
+        <h3 class="text-xs font-semibold font-mono text-slate-300 uppercase tracking-wider flex items-center gap-2">
+          <i data-lucide="pie-chart" class="w-4 h-4 text-amber-400"></i>
+          <span>Extension Breakdown</span>
+        </h3>
+        <div id="stat-extensions-bar" class="w-full h-2.5 rounded-full bg-slate-900 overflow-hidden flex light:bg-slate-200">
+          <!-- Stacked bar -->
+        </div>
+        <div id="stat-extensions-list" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5 pt-2">
+          <!-- List items -->
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- LIGHTBOX MODAL (Image Popup) -->
+  <div id="modal-lightbox" class="fixed inset-0 z-50 hidden bg-slate-950/95 backdrop-blur-lg flex flex-col justify-between p-4 transition-opacity">
+    <!-- Lightbox Header -->
+    <div class="flex items-center justify-between max-w-[1800px] mx-auto w-full z-10">
+      <div class="flex items-center gap-3 text-slate-300">
+        <span id="lb-counter" class="text-xs px-2.5 py-1 rounded bg-slate-900 border border-slate-800 font-mono text-amber-400">
+          1 / 1
+        </span>
+        <span id="lb-filename" class="text-xs sm:text-sm font-semibold truncate max-w-xs sm:max-w-md"></span>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <button id="btn-lb-copy" class="p-2 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 transition-colors" title="Copy Raw Image URL">
+          <i data-lucide="copy" class="w-4 h-4"></i>
+        </button>
+        <a id="btn-lb-download" href="#" download target="_blank" class="p-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 transition-colors" title="Download Image">
+          <i data-lucide="download" class="w-4 h-4"></i>
+        </a>
+        <button id="btn-lb-close" class="p-2 rounded-lg bg-slate-900 hover:bg-rose-600 text-slate-300 hover:text-white border border-slate-800 transition-colors" title="Close (Esc)">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- Lightbox Main Stage -->
+    <div class="relative flex-1 flex items-center justify-center my-2 overflow-hidden">
+      <button id="btn-lb-prev" class="absolute left-2 sm:left-6 z-10 p-3 rounded-full bg-slate-900/80 hover:bg-amber-500 hover:text-slate-950 text-slate-200 border border-slate-800 transition-colors" title="Previous (Left Arrow)">
+        <i data-lucide="chevron-left" class="w-5 h-5"></i>
+      </button>
+
+      <div class="max-w-full max-h-full flex items-center justify-center p-2">
+        <img id="lb-image" src="" alt="Preview" class="max-w-full max-h-[80vh] object-contain rounded-lg shadow-2xl transition-transform duration-200">
+      </div>
+
+      <button id="btn-lb-next" class="absolute right-2 sm:right-6 z-10 p-3 rounded-full bg-slate-900/80 hover:bg-amber-500 hover:text-slate-950 text-slate-200 border border-slate-800 transition-colors" title="Next (Right Arrow)">
+        <i data-lucide="chevron-right" class="w-5 h-5"></i>
+      </button>
+    </div>
+
+    <!-- Lightbox Footer Stats -->
+    <div class="max-w-xl mx-auto w-full glass-card p-2.5 rounded-xl flex items-center justify-between text-xs text-slate-300 gap-4">
+      <div class="flex items-center gap-4 overflow-x-auto font-mono text-[11px]">
+        <span class="truncate max-w-[200px]" id="lb-path"></span>
+        <span id="lb-size" class="text-slate-400"></span>
+        <span id="lb-dimensions" class="text-amber-400">-- × -- px</span>
+      </div>
+
+      <a id="lb-raw-link" href="#" target="_blank" rel="noopener noreferrer" class="text-amber-400 hover:underline flex items-center gap-1 shrink-0 font-mono text-[11px]">
+        <span>Raw File</span>
+        <i data-lucide="external-link" class="w-3 h-3"></i>
+      </a>
+    </div>
+  </div>
+
+  <!-- FILE VIEWER DRAWER -->
+  <div id="modal-file-viewer" class="fixed inset-0 z-50 hidden bg-slate-950/80 backdrop-blur-sm flex justify-end">
+    <div class="w-full max-w-3xl bg-slate-950 h-full border-l border-slate-800 flex flex-col shadow-2xl light:bg-white light:border-slate-200">
+      
+      <div class="p-4 border-b border-slate-800 flex items-center justify-between gap-4 light:border-slate-200">
+        <div class="flex items-center gap-3 overflow-hidden">
+          <i data-lucide="file-code" class="w-5 h-5 text-amber-400 shrink-0"></i>
+          <div>
+            <h3 id="file-viewer-title" class="font-bold text-xs sm:text-sm text-slate-100 truncate light:text-slate-900"></h3>
+            <p id="file-viewer-path" class="text-[11px] text-slate-400 font-mono truncate light:text-slate-500"></p>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <button id="btn-file-copy" class="px-2.5 py-1 text-xs rounded bg-slate-900 hover:bg-slate-800 text-slate-300 flex items-center gap-1 border border-slate-800 transition-colors">
+            <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+            <span>Copy</span>
+          </button>
+          <button id="btn-file-close" class="p-1 rounded bg-slate-900 hover:bg-rose-600 text-slate-300 hover:text-white border border-slate-800 transition-colors">
+            <i data-lucide="x" class="w-4 h-4"></i>
+          </button>
+        </div>
+      </div>
+
+      <div class="flex-1 overflow-y-auto p-4 relative">
+        <div id="file-viewer-loading" class="absolute inset-0 flex items-center justify-center bg-slate-950/80">
+          <i data-lucide="loader-2" class="w-6 h-6 text-amber-400 animate-spin"></i>
+        </div>
+
+        <pre id="file-code-container" class="hidden text-xs font-mono p-4 rounded-lg bg-slate-900 border border-slate-800 overflow-x-auto text-slate-200"><code id="file-code-content"></code></pre>
+
+        <div id="file-markdown-container" class="hidden prose dark:prose-invert max-w-none text-xs p-4 bg-slate-900 rounded-lg border border-slate-800"></div>
+
+        <div id="file-image-container" class="hidden flex items-center justify-center p-4">
+          <img id="file-image-preview" src="" alt="File Preview" class="max-w-full max-h-[65vh] object-contain rounded-lg border border-slate-800">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PAT MODAL -->
+  <div id="modal-pat" class="fixed inset-0 z-50 hidden bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="glass-card w-full max-w-md rounded-2xl p-5 space-y-4 border border-slate-800">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2 text-amber-400">
+          <i data-lucide="key" class="w-4 h-4"></i>
+          <h3 class="font-serif font-bold text-base text-slate-100">GitHub API Token</h3>
+        </div>
+        <button id="btn-pat-close" class="text-slate-400 hover:text-slate-200">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <p class="text-xs text-slate-400 leading-relaxed font-light">
+        Optionally set a Personal Access Token to expand your rate limit from 60 to 5,000 requests/hr.
+      </p>
+
+      <input 
+        type="password" 
+        id="input-pat-token" 
+        placeholder="ghp_... or github_pat_..." 
+        class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-xs text-slate-100 font-mono focus:outline-none focus:ring-1 focus:ring-amber-500"
+      />
+
+      <div class="flex items-center justify-between pt-1">
+        <button id="btn-pat-clear" class="text-xs text-rose-400 hover:underline">Clear</button>
+        <button id="btn-pat-save" class="px-4 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold text-xs rounded-lg transition-all">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Container -->
+  <div id="toast-container" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+  <!-- Application Logic -->
+  <script>
+    /* Global Application State */
+    const state = {
+      owner: '',
+      repo: '',
+      branch: '',
+      branches: [],
+      files: [],
+      images: [],
+      folders: [],
+      pat: localStorage.getItem('gitgallery_pat') || '',
+      activeTab: 'gallery',
+      selectedFormat: 'ALL',
+      selectedFolder: 'ALL',
+      lightboxIndex: 0,
+      cardMinWidth: 240
+    };
+
+    const IMAGE_EXTENSIONS = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'ico', 'bmp', 'avif']);
+
+    /* DOM Cache */
+    const DOM = {
+      formRepo: document.getElementById('form-repo'),
+      inputRepoUrl: document.getElementById('input-repo-url'),
+      btnPasteUrl: document.getElementById('btn-paste-url'),
+      btnFetchRepo: document.getElementById('btn-fetch-repo'),
+      btnFetchText: document.getElementById('btn-fetch-text'),
+      
+      repoMetaBar: document.getElementById('repo-meta-bar'),
+      repoAvatar: document.getElementById('repo-avatar'),
+      repoTitle: document.getElementById('repo-title'),
+      repoDescription: document.getElementById('repo-description'),
+      selectBranch: document.getElementById('select-branch'),
+      badgeStars: document.getElementById('badge-stars'),
+      badgeSize: document.getElementById('badge-size'),
+      linkGithubRepo: document.getElementById('link-github-repo'),
+      
+      tabGallery: document.getElementById('tab-gallery'),
+      tabExplorer: document.getElementById('tab-explorer'),
+      tabStats: document.getElementById('tab-stats'),
+      tabGalleryCount: document.getElementById('tab-gallery-count'),
+      tabExplorerCount: document.getElementById('tab-explorer-count'),
+      
+      stateEmpty: document.getElementById('state-empty'),
+      stateLoading: document.getElementById('state-loading'),
+      stateError: document.getElementById('state-error'),
+      errorTitle: document.getElementById('error-title'),
+      errorMessage: document.getElementById('error-message'),
+      
+      viewGallery: document.getElementById('view-gallery'),
+      viewExplorer: document.getElementById('view-explorer'),
+      viewStats: document.getElementById('view-stats'),
+      
+      galleryGrid: document.getElementById('gallery-grid'),
+      galleryEmpty: document.getElementById('gallery-empty'),
+      filterGallerySearch: document.getElementById('filter-gallery-search'),
+      filterFolderSelect: document.getElementById('filter-folder-select'),
+      filterFormatPills: document.getElementById('filter-format-pills'),
+      gallerySizeSlider: document.getElementById('gallery-size-slider'),
+      gallerySizeVal: document.getElementById('gallery-size-val'),
+      selectGallerySort: document.getElementById('select-gallery-sort'),
+      
+      filterExplorerSearch: document.getElementById('filter-explorer-search'),
+      fileTreeContainer: document.getElementById('file-tree-container'),
+      
+      statTotalFiles: document.getElementById('stat-total-files'),
+      statTotalImages: document.getElementById('stat-total-images'),
+      statImageRatio: document.getElementById('stat-image-ratio'),
+      statRepoSize: document.getElementById('stat-repo-size'),
+      statUniqueExts: document.getElementById('stat-unique-exts'),
+      statExtensionsBar: document.getElementById('stat-extensions-bar'),
+      statExtensionsList: document.getElementById('stat-extensions-list'),
+      
+      modalLightbox: document.getElementById('modal-lightbox'),
+      lbFilename: document.getElementById('lb-filename'),
+      lbCounter: document.getElementById('lb-counter'),
+      lbImage: document.getElementById('lb-image'),
+      lbPath: document.getElementById('lb-path'),
+      lbSize: document.getElementById('lb-size'),
+      lbDimensions: document.getElementById('lb-dimensions'),
+      lbRawLink: document.getElementById('lb-raw-link'),
+      btnLbPrev: document.getElementById('btn-lb-prev'),
+      btnLbNext: document.getElementById('btn-lb-next'),
+      btnLbClose: document.getElementById('btn-lb-close'),
+      btnLbCopy: document.getElementById('btn-lb-copy'),
+      btnLbDownload: document.getElementById('btn-lb-download'),
+      
+      modalFileViewer: document.getElementById('modal-file-viewer'),
+      fileViewerTitle: document.getElementById('file-viewer-title'),
+      fileViewerPath: document.getElementById('file-viewer-path'),
+      fileViewerLoading: document.getElementById('file-viewer-loading'),
+      fileCodeContainer: document.getElementById('file-code-container'),
+      fileCodeContent: document.getElementById('file-code-content'),
+      fileMarkdownContainer: document.getElementById('file-markdown-container'),
+      fileImageContainer: document.getElementById('file-image-container'),
+      fileImagePreview: document.getElementById('file-image-preview'),
+      btnFileClose: document.getElementById('btn-file-close'),
+      btnFileCopy: document.getElementById('btn-file-copy'),
+      
+      btnOpenPat: document.getElementById('btn-open-pat'),
+      patStatusDot: document.getElementById('pat-status-dot'),
+      modalPat: document.getElementById('modal-pat'),
+      inputPatToken: document.getElementById('input-pat-token'),
+      btnPatSave: document.getElementById('btn-pat-save'),
+      btnPatClear: document.getElementById('btn-pat-clear'),
+      btnPatClose: document.getElementById('btn-pat-close'),
+      btnThemeToggle: document.getElementById('btn-theme-toggle')
+    };
+
+    /* Notification Helper */
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      const colors = {
+        info: 'bg-slate-900 border-slate-700 text-slate-100',
+        success: 'bg-emerald-950 border-emerald-700 text-emerald-200',
+        error: 'bg-rose-950 border-rose-700 text-rose-200'
+      };
+      toast.className = `pointer-events-auto flex items-center gap-2 px-3.5 py-2 rounded-xl border text-xs font-mono shadow-2xl transition-all duration-300 transform translate-y-2 opacity-0 ${colors[type] || colors.info}`;
+      toast.innerHTML = `<span>${message}</span>`;
+      container.appendChild(toast);
+      requestAnimationFrame(() => toast.classList.remove('translate-y-2', 'opacity-0'));
+      setTimeout(() => {
+        toast.classList.add('opacity-0', 'translate-y-2');
+        setTimeout(() => toast.remove(), 300);
+      }, 3000);
+    }
+
+    function formatBytes(bytes) {
+      if (!bytes || bytes === 0) return '0 B';
+      const k = 1024;
+      const sizes = ['B', 'KB', 'MB', 'GB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+    }
+
+    function parseGitHubUrl(urlStr) {
+      let cleaned = urlStr.trim().replace(/\/+$/, '');
+      cleaned = cleaned.replace(/^https?:\/\/github\.com\//i, '');
+      const parts = cleaned.split('/');
+      if (parts.length >= 2) {
+        let owner = parts[0];
+        let repo = parts[1].replace(/\.git$/i, '');
+        let branch = '';
+        if (parts.length >= 4 && parts[2] === 'tree') {
+          branch = parts[3];
+        }
+        return { owner, repo, branch };
+      }
+      return null;
+    }
+
+    function getFetchHeaders() {
+      const headers = { 'Accept': 'application/vnd.github.v3+json' };
+      if (state.pat) {
+        headers['Authorization'] = `token ${state.pat}`;
+      }
+      return headers;
+    }
+
+    async function loadRepository(input) {
+      const parsed = parseGitHubUrl(input);
+      if (!parsed) {
+        showToast('Invalid GitHub URL or owner/repository format', 'error');
+        return;
+      }
+
+      state.owner = parsed.owner;
+      state.repo = parsed.repo;
+
+      DOM.stateEmpty.classList.add('hidden');
+      DOM.stateError.classList.add('hidden');
+      DOM.viewGallery.classList.add('hidden');
+      DOM.viewExplorer.classList.add('hidden');
+      DOM.viewStats.classList.add('hidden');
+      DOM.repoMetaBar.classList.add('hidden');
+      DOM.stateLoading.classList.remove('hidden');
+
+      // KEY FIX: Keep search input unlocked during loading!
+      DOM.btnFetchText.textContent = 'Loading...';
+
+      try {
+        const repoRes = await fetch(`https://api.github.com/repos/${state.owner}/${state.repo}`, {
+          headers: getFetchHeaders()
+        });
+
+        if (!repoRes.ok) {
+          if (repoRes.status === 403) throw new Error('API Rate limit reached. Add a GitHub Token.');
+          if (repoRes.status === 404) throw new Error('Repository not found or private.');
+          throw new Error(`GitHub API Error (${repoRes.status})`);
+        }
+
+        const repoData = await repoRes.json();
+        
+        DOM.repoAvatar.src = repoData.owner.avatar_url;
+        DOM.repoTitle.textContent = `${repoData.owner.login} / ${repoData.name}`;
+        DOM.repoDescription.textContent = repoData.description || 'No description provided.';
+        DOM.badgeStars.textContent = repoData.stargazers_count.toLocaleString();
+        DOM.badgeSize.textContent = formatBytes(repoData.size * 1024);
+        DOM.linkGithubRepo.href = repoData.html_url;
+
+        await fetchBranches(parsed.branch || repoData.default_branch);
+        await fetchTree(state.branch);
+
+        DOM.stateLoading.classList.add('hidden');
+        DOM.repoMetaBar.classList.remove('hidden');
+
+        switchTab(state.activeTab);
+        showToast(`Loaded ${state.owner}/${state.repo}`, 'success');
+
+      } catch (err) {
+        DOM.stateLoading.classList.add('hidden');
+        DOM.stateError.classList.remove('hidden');
+        DOM.errorTitle.textContent = 'Unable to Load Repository';
+        DOM.errorMessage.textContent = err.message;
+        showToast(err.message, 'error');
+      } finally {
+        DOM.btnFetchText.textContent = 'Explore Repo';
+      }
+    }
+
+    async function fetchBranches(defaultBranch) {
+      try {
+        const res = await fetch(`https://api.github.com/repos/${state.owner}/${state.repo}/branches?per_page=100`, {
+          headers: getFetchHeaders()
+        });
+        if (res.ok) {
+          const branches = await res.json();
+          state.branches = branches.map(b => b.name);
+        } else {
+          state.branches = [defaultBranch];
+        }
+      } catch (e) {
+        state.branches = [defaultBranch];
+      }
+
+      state.branch = state.branches.includes(defaultBranch) ? defaultBranch : state.branches[0] || 'main';
+      DOM.selectBranch.innerHTML = state.branches
+        .map(b => `<option value="${b}" ${b === state.branch ? 'selected' : ''}>${b}</option>`)
+        .join('');
+    }
+
+    async function fetchTree(branch) {
+      const res = await fetch(`https://api.github.com/repos/${state.owner}/${state.repo}/git/trees/${branch}?recursive=1`, {
+        headers: getFetchHeaders()
+      });
+
+      if (!res.ok) throw new Error('Could not fetch git tree for branch: ' + branch);
+
+      const data = await res.json();
+      state.files = (data.tree || []).filter(item => item.type === 'blob');
+      
+      state.images = state.files.filter(item => {
+        const ext = item.path.split('.').pop().toLowerCase();
+        return IMAGE_EXTENSIONS.has(ext);
+      });
+
+      // Extract unique folders containing images
+      const folderSet = new Set();
+      state.images.forEach(img => {
+        const parts = img.path.split('/');
+        if (parts.length > 1) {
+          parts.pop(); // Remove file name
+          const folderPath = parts.join('/');
+          folderSet.add(folderPath);
+        } else {
+          folderSet.add('/'); // Root folder
+        }
+      });
+
+      state.folders = Array.from(folderSet).sort();
+
+      // Render Folder Filter Dropdown Options
+      let folderOptions = `<option value="ALL">📁 All Folders (${state.images.length} images)</option>`;
+      state.folders.forEach(f => {
+        const count = state.images.filter(img => {
+          if (f === '/') return !img.path.includes('/');
+          return img.path.startsWith(f + '/');
+        }).length;
+        folderOptions += `<option value="${f}">📂 ${f} (${count})</option>`;
+      });
+      DOM.filterFolderSelect.innerHTML = folderOptions;
+
+      DOM.tabGalleryCount.textContent = state.images.length;
+      DOM.tabExplorerCount.textContent = state.files.length;
+
+      renderFormatPills();
+      renderGallery();
+      renderExplorer();
+      renderStats();
+    }
+
+    function renderFormatPills() {
+      const formats = new Set();
+      state.images.forEach(img => {
+        const ext = img.path.split('.').pop().toUpperCase();
+        formats.add(ext);
+      });
+
+      let html = `
+        <button type="button" class="format-pill px-2 py-0.5 rounded text-[11px] font-mono font-semibold ${state.selectedFormat === 'ALL' ? 'bg-amber-500 text-slate-950' : 'bg-slate-900 border border-slate-800 text-slate-400 light:bg-slate-100'}" data-fmt="ALL">
+          ALL
+        </button>
+      `;
+
+      Array.from(formats).sort().forEach(fmt => {
+        html += `
+          <button type="button" class="format-pill px-2 py-0.5 rounded text-[11px] font-mono font-semibold ${state.selectedFormat === fmt ? 'bg-amber-500 text-slate-950' : 'bg-slate-900 border border-slate-800 text-slate-400 light:bg-slate-100'}" data-fmt="${fmt}">
+            ${fmt}
+          </button>
+        `;
+      });
+
+      DOM.filterFormatPills.innerHTML = html;
+      DOM.filterFormatPills.querySelectorAll('.format-pill').forEach(btn => {
+        btn.addEventListener('click', () => {
+          state.selectedFormat = btn.dataset.fmt;
+          renderFormatPills();
+          renderGallery();
+        });
+      });
+    }
+
+    function getRawUrl(path) {
+      return `https://raw.githubusercontent.com/${state.owner}/${state.repo}/${state.branch}/${path}`;
+    }
+
+    function renderGallery() {
+      const searchQuery = DOM.filterGallerySearch.value.toLowerCase().trim();
+      const sortVal = DOM.selectGallerySort.value;
+      const selectedFolder = DOM.filterFolderSelect.value;
+
+      let filtered = state.images.filter(img => {
+        const matchesSearch = img.path.toLowerCase().includes(searchQuery);
+        const ext = img.path.split('.').pop().toUpperCase();
+        const matchesFormat = state.selectedFormat === 'ALL' || ext === state.selectedFormat;
+        
+        let matchesFolder = true;
+        if (selectedFolder !== 'ALL') {
+          if (selectedFolder === '/') {
+            matchesFolder = !img.path.includes('/');
+          } else {
+            matchesFolder = img.path.startsWith(selectedFolder + '/');
+          }
+        }
+
+        return matchesSearch && matchesFormat && matchesFolder;
+      });
+
+      filtered.sort((a, b) => {
+        if (sortVal === 'name-asc') return a.path.localeCompare(b.path);
+        if (sortVal === 'name-desc') return b.path.localeCompare(a.path);
+        if (sortVal === 'size-desc') return (b.size || 0) - (a.size || 0);
+        if (sortVal === 'size-asc') return (a.size || 0) - (b.size || 0);
+        return 0;
+      });
+
+      if (filtered.length === 0) {
+        DOM.galleryGrid.innerHTML = '';
+        DOM.galleryEmpty.classList.remove('hidden');
+        return;
+      }
+
+      DOM.galleryEmpty.classList.add('hidden');
+
+      // KEY REFINEMENT: Proportional height cards where images scale naturally in height & width
+      DOM.galleryGrid.innerHTML = filtered.map(img => {
+        const fileName = img.path.split('/').pop();
+        const rawUrl = getRawUrl(img.path);
+        const ext = img.path.split('.').pop().toUpperCase();
+        
+        return `
+          <div class="group glass-card rounded-xl overflow-hidden hover:border-amber-500/50 transition-all duration-200 flex flex-col justify-between shadow-md cursor-pointer" onclick="openLightboxByPath('${img.path}')">
+            
+            <!-- Proportional Image Container -->
+            <div class="relative w-full bg-slate-950/90 flex items-center justify-center p-2 light:bg-slate-100 overflow-hidden">
+              <img 
+                src="${rawUrl}" 
+                alt="${fileName}" 
+                loading="lazy"
+                class="w-full h-auto max-h-[500px] object-contain group-hover:scale-102 transition-transform duration-300 rounded"
+                onerror="this.onerror=null; this.src='https://placehold.co/300x200/1e293b/64748b?text=Image+Error';"
+              />
+              <span class="absolute top-2 right-2 px-1.5 py-0.5 text-[9px] font-mono font-bold rounded bg-slate-950/80 text-amber-400 backdrop-blur-md border border-slate-800">
+                ${ext}
+              </span>
+            </div>
+
+            <!-- Card Bottom Meta -->
+            <div class="p-2.5 bg-slate-950/60 border-t border-slate-800/80 space-y-0.5 light:bg-white light:border-slate-200">
+              <p class="text-xs font-semibold text-slate-200 truncate light:text-slate-900" title="${fileName}">${fileName}</p>
+              <div class="flex items-center justify-between text-[10px] font-mono text-slate-400 light:text-slate-500">
+                <span class="truncate max-w-[130px]" title="${img.path}">${img.path}</span>
+                <span>${formatBytes(img.size)}</span>
+              </div>
+            </div>
+
+          </div>
+        `;
+      }).join('');
+    }
+
+    /* Lightbox Routine */
+    window.openLightboxByPath = function(path) {
+      const idx = state.images.findIndex(img => img.path === path);
+      if (idx !== -1) {
+        state.lightboxIndex = idx;
+        updateLightbox();
+        DOM.modalLightbox.classList.remove('hidden');
+      }
+    };
+
+    function updateLightbox() {
+      const img = state.images[state.lightboxIndex];
+      if (!img) return;
+
+      const fileName = img.path.split('/').pop();
+      const rawUrl = getRawUrl(img.path);
+
+      DOM.lbCounter.textContent = `${state.lightboxIndex + 1} / ${state.images.length}`;
+      DOM.lbFilename.textContent = fileName;
+      DOM.lbPath.textContent = img.path;
+      DOM.lbSize.textContent = formatBytes(img.size);
+      DOM.lbImage.src = rawUrl;
+      DOM.lbRawLink.href = rawUrl;
+      DOM.btnLbDownload.href = rawUrl;
+
+      DOM.lbDimensions.textContent = 'Loading dimensions...';
+      const tempImg = new Image();
+      tempImg.onload = function() {
+        DOM.lbDimensions.textContent = `${this.naturalWidth} × ${this.naturalHeight} px`;
+      };
+      tempImg.src = rawUrl;
+    }
+
+    /* Render Explorer Tree */
+    function renderExplorer() {
+      const searchQuery = DOM.filterExplorerSearch.value.toLowerCase().trim();
+      let filtered = state.files.filter(f => f.path.toLowerCase().includes(searchQuery));
+
+      if (filtered.length === 0) {
+        DOM.fileTreeContainer.innerHTML = `<div class="p-6 text-center text-slate-500 text-xs">No matching files found.</div>`;
+        return;
+      }
+
+      DOM.fileTreeContainer.innerHTML = filtered.slice(0, 200).map(file => {
+        const fileName = file.path.split('/').pop();
+        const ext = fileName.split('.').pop().toLowerCase();
+        
+        let icon = 'file';
+        let iconColor = 'text-slate-400';
+
+        if (IMAGE_EXTENSIONS.has(ext)) {
+          icon = 'image';
+          iconColor = 'text-emerald-400';
+        } else if (['js', 'ts', 'jsx', 'tsx', 'py', 'cpp', 'html', 'css'].includes(ext)) {
+          icon = 'code-2';
+          iconColor = 'text-amber-400';
+        } else if (['md', 'txt'].includes(ext)) {
+          icon = 'file-text';
+          iconColor = 'text-cyan-400';
+        }
+
+        return `
+          <div class="grid grid-cols-12 px-4 py-2 text-xs hover:bg-slate-900/60 transition-colors items-center cursor-pointer light:hover:bg-slate-100" onclick="openFileViewer('${file.path}')">
+            <div class="col-span-8 sm:col-span-7 flex items-center gap-2 overflow-hidden">
+              <i data-lucide="${icon}" class="w-3.5 h-3.5 ${iconColor} shrink-0"></i>
+              <span class="font-medium text-slate-200 truncate light:text-slate-800" title="${fileName}">${fileName}</span>
+            </div>
+            <div class="col-span-4 sm:col-span-3 text-right sm:text-left text-slate-400 truncate font-mono text-[11px] light:text-slate-500">
+              ${file.path}
+            </div>
+            <div class="hidden sm:block sm:col-span-2 text-right text-slate-400 font-mono text-[11px] light:text-slate-500">
+              ${formatBytes(file.size)}
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      lucide.createIcons();
+    }
+
+    /* Open File Modal Drawer */
+    window.openFileViewer = async function(path) {
+      const file = state.files.find(f => f.path === path);
+      if (!file) return;
+
+      const fileName = file.path.split('/').pop();
+      const ext = fileName.split('.').pop().toLowerCase();
+      const rawUrl = getRawUrl(file.path);
+
+      DOM.fileViewerTitle.textContent = fileName;
+      DOM.fileViewerPath.textContent = file.path;
+      DOM.fileCodeContainer.classList.add('hidden');
+      DOM.fileMarkdownContainer.classList.add('hidden');
+      DOM.fileImageContainer.classList.add('hidden');
+      DOM.fileViewerLoading.classList.remove('hidden');
+
+      DOM.modalFileViewer.classList.remove('hidden');
+
+      if (IMAGE_EXTENSIONS.has(ext)) {
+        DOM.fileViewerLoading.classList.add('hidden');
+        DOM.fileImagePreview.src = rawUrl;
+        DOM.fileImageContainer.classList.remove('hidden');
+      } else {
+        try {
+          const res = await fetch(rawUrl);
+          if (!res.ok) throw new Error('Could not fetch content');
+          const content = await res.text();
+
+          DOM.fileViewerLoading.classList.add('hidden');
+
+          if (['md', 'markdown'].includes(ext)) {
+            DOM.fileMarkdownContainer.innerHTML = marked.parse(content);
+            DOM.fileMarkdownContainer.classList.remove('hidden');
+          } else {
+            DOM.fileCodeContent.textContent = content;
+            DOM.fileCodeContainer.classList.remove('hidden');
+            hljs.highlightElement(DOM.fileCodeContent);
+          }
+        } catch (e) {
+          DOM.fileViewerLoading.classList.add('hidden');
+          DOM.fileCodeContent.textContent = 'Error loading content: ' + e.message;
+          DOM.fileCodeContainer.classList.remove('hidden');
+        }
+      }
+    };
+
+    /* Render Stats */
+    function renderStats() {
+      DOM.statTotalFiles.textContent = state.files.length.toLocaleString();
+      DOM.statTotalImages.textContent = state.images.length.toLocaleString();
+      
+      const ratio = state.files.length ? ((state.images.length / state.files.length) * 100).toFixed(1) : 0;
+      DOM.statImageRatio.textContent = `${ratio}% of total repo files`;
+
+      const totalSize = state.files.reduce((acc, f) => acc + (f.size || 0), 0);
+      DOM.statRepoSize.textContent = formatBytes(totalSize);
+
+      const extCounts = {};
+      state.files.forEach(f => {
+        const ext = f.path.split('.').pop().toLowerCase() || 'no-ext';
+        extCounts[ext] = (extCounts[ext] || 0) + 1;
+      });
+
+      const sortedExts = Object.entries(extCounts).sort((a, b) => b[1] - a[1]);
+      DOM.statUniqueExts.textContent = sortedExts.length;
+
+      const palette = ['#f59e0b', '#10b981', '#06b6d4', '#6366f1', '#ec4899', '#8b5cf6'];
+
+      DOM.statExtensionsBar.innerHTML = sortedExts.slice(0, 6).map(([ext, count], idx) => {
+        const pct = ((count / state.files.length) * 100).toFixed(1);
+        return `<div style="width: ${pct}%; background-color: ${palette[idx % palette.length]}" title="${ext}: ${count} files (${pct}%)"></div>`;
+      }).join('');
+
+      DOM.statExtensionsList.innerHTML = sortedExts.slice(0, 12).map(([ext, count]) => {
+        return `
+          <div class="flex items-center justify-between p-2 rounded-lg bg-slate-900 border border-slate-800 text-xs font-mono light:bg-slate-100 light:border-slate-200">
+            <span class="text-slate-300 font-medium light:text-slate-800">.${ext}</span>
+            <span class="px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 text-[10px] light:bg-slate-200 light:text-slate-700">${count}</span>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function switchTab(tabName) {
+      state.activeTab = tabName;
+
+      [DOM.tabGallery, DOM.tabExplorer, DOM.tabStats].forEach(btn => {
+        btn.classList.remove('border-amber-500', 'text-amber-400');
+        btn.classList.add('border-transparent', 'text-slate-400');
+      });
+
+      DOM.viewGallery.classList.add('hidden');
+      DOM.viewExplorer.classList.add('hidden');
+      DOM.viewStats.classList.add('hidden');
+
+      if (tabName === 'gallery') {
+        DOM.tabGallery.classList.add('border-amber-500', 'text-amber-400');
+        DOM.viewGallery.classList.remove('hidden');
+      } else if (tabName === 'explorer') {
+        DOM.tabExplorer.classList.add('border-amber-500', 'text-amber-400');
+        DOM.viewExplorer.classList.remove('hidden');
+      } else if (tabName === 'stats') {
+        DOM.tabStats.classList.add('border-amber-500', 'text-amber-400');
+        DOM.viewStats.classList.remove('hidden');
+      }
+    }
+
+    /* Event Listeners setup */
+    function initEventListeners() {
+      DOM.formRepo.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const url = DOM.inputRepoUrl.value.trim();
+        if (url) loadRepository(url);
+      });
+
+      DOM.btnPasteUrl.addEventListener('click', async () => {
+        try {
+          const text = await navigator.clipboard.readText();
+          DOM.inputRepoUrl.value = text;
+          showToast('Pasted URL from clipboard', 'info');
+        } catch (e) {
+          showToast('Clipboard access denied', 'error');
+        }
+      });
+
+      document.querySelectorAll('.preset-badge').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const repo = btn.dataset.url;
+          DOM.inputRepoUrl.value = repo;
+          loadRepository(repo);
+        });
+      });
+
+      DOM.selectBranch.addEventListener('change', (e) => {
+        state.branch = e.target.value;
+        fetchTree(state.branch);
+      });
+
+      DOM.tabGallery.addEventListener('click', () => switchTab('gallery'));
+      DOM.tabExplorer.addEventListener('click', () => switchTab('explorer'));
+      DOM.tabStats.addEventListener('click', () => switchTab('stats'));
+
+      DOM.filterGallerySearch.addEventListener('input', renderGallery);
+      DOM.filterFolderSelect.addEventListener('change', renderGallery);
+      DOM.selectGallerySort.addEventListener('change', renderGallery);
+
+      // Card Size Slider Handler
+      DOM.gallerySizeSlider.addEventListener('input', (e) => {
+        const val = e.target.value;
+        DOM.gallerySizeVal.textContent = `${val}px`;
+        document.documentElement.style.setProperty('--card-min-width', `${val}px`);
+      });
+
+      DOM.filterExplorerSearch.addEventListener('input', renderExplorer);
+
+      DOM.btnLbPrev.addEventListener('click', () => {
+        state.lightboxIndex = (state.lightboxIndex - 1 + state.images.length) % state.images.length;
+        updateLightbox();
+      });
+
+      DOM.btnLbNext.addEventListener('click', () => {
+        state.lightboxIndex = (state.lightboxIndex + 1) % state.images.length;
+        updateLightbox();
+      });
+
+      DOM.btnLbClose.addEventListener('click', () => {
+        DOM.modalLightbox.classList.add('hidden');
+      });
+
+      DOM.btnLbCopy.addEventListener('click', () => {
+        const rawUrl = getRawUrl(state.images[state.lightboxIndex].path);
+        const temp = document.createElement('textarea');
+        temp.value = rawUrl;
+        document.body.appendChild(temp);
+        temp.select();
+        document.execCommand('copy');
+        document.body.removeChild(temp);
+        showToast('Raw URL copied!', 'success');
+      });
+
+      window.addEventListener('keydown', (e) => {
+        if (!DOM.modalLightbox.classList.contains('hidden')) {
+          if (e.key === 'ArrowLeft') DOM.btnLbPrev.click();
+          if (e.key === 'ArrowRight') DOM.btnLbNext.click();
+          if (e.key === 'Escape') DOM.btnLbClose.click();
+        }
+      });
+
+      DOM.btnFileClose.addEventListener('click', () => {
+        DOM.modalFileViewer.classList.add('hidden');
+      });
+
+      DOM.btnFileCopy.addEventListener('click', () => {
+        const content = DOM.fileCodeContent.textContent;
+        const temp = document.createElement('textarea');
+        temp.value = content;
+        document.body.appendChild(temp);
+        temp.select();
+        document.execCommand('copy');
+        document.body.removeChild(temp);
+        showToast('Content copied to clipboard!', 'success');
+      });
+
+      DOM.btnOpenPat.addEventListener('click', () => {
+        DOM.inputPatToken.value = state.pat;
+        DOM.modalPat.classList.remove('hidden');
+      });
+
+      DOM.btnPatClose.addEventListener('click', () => {
+        DOM.modalPat.classList.add('hidden');
+      });
+
+      DOM.btnPatSave.addEventListener('click', () => {
+        state.pat = DOM.inputPatToken.value.trim();
+        localStorage.setItem('gitgallery_pat', state.pat);
+        DOM.patStatusDot.className = state.pat ? 'w-2 h-2 rounded-full bg-emerald-400' : 'w-2 h-2 rounded-full bg-slate-600';
+        DOM.modalPat.classList.add('hidden');
+        showToast('Token saved!', 'success');
+      });
+
+      DOM.btnPatClear.addEventListener('click', () => {
+        state.pat = '';
+        localStorage.removeItem('gitgallery_pat');
+        DOM.inputPatToken.value = '';
+        DOM.patStatusDot.className = 'w-2 h-2 rounded-full bg-slate-600';
+        showToast('Token cleared', 'info');
+      });
+
+      DOM.btnThemeToggle.addEventListener('click', () => {
+        document.documentElement.classList.toggle('dark');
+      });
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      lucide.createIcons();
+      initEventListeners();
+
+      if (state.pat) {
+        DOM.patStatusDot.className = 'w-2 h-2 rounded-full bg-emerald-400';
+      }
+
+      // KEY REFINEMENT: Starts completely empty with initial state banner, NO default fetch!
+      DOM.inputRepoUrl.value = '';
+    });
+  </script>
+</body>
+</html>
